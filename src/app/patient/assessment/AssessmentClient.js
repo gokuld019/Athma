@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { useSearchParams } from "next/navigation";
 import { User, Briefcase, Venus, Baby, HeartPulse, Sparkles, Clock, FileQuestion } from "lucide-react";
 
 // DUMMY VERSION — static data, no API calls yet.
@@ -148,9 +147,8 @@ const CATEGORIES = [
 
 const OPTIONS = ["Yes", "No"];
 
-export default function AssessmentPage() {
-  const searchParams = useSearchParams();
-  const packageId = searchParams.get("package") || "executive";
+export default function AssessmentPage({ packageId }) {
+  
   const pkg = PACKAGES[packageId] || PACKAGES.executive;
   const PkgIcon = pkg.icon;
 

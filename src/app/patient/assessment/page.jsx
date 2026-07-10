@@ -1,16 +1,12 @@
 import { Suspense } from "react";
 import AssessmentClient from "./AssessmentClient";
 
-export default function AssessmentPage() {
+export default async function Page({ searchParams }) {
+  const params = await searchParams;
+
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen flex items-center justify-center">
-          Loading...
-        </div>
-      }
-    >
-      <AssessmentClient />
+    <Suspense fallback={<div>Loading...</div>}>
+      <AssessmentClient packageId={params.package || "executive"} />
     </Suspense>
   );
 }
