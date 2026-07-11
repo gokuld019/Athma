@@ -217,11 +217,18 @@ export default function AssessmentPage({ packageId }) {
 
   return (
     <div className="h-screen flex flex-col bg-[#F7F8F6]">
-      <div className="border-b border-line bg-white px-6 py-3 flex items-center justify-between">
+      <div className="border-b border-line bg-white px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between">
         <div className="flex-1"></div>
-        <Image src="/Athmalogo.webp" alt="Athma Mind Care Hospital" width={130} height={42} priority />
-        <p className="text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide flex-1 text-right">
-          Step 3 of 5 &middot; {pkg.name} package
+        <Image 
+          src="/Athmalogo.webp" 
+          alt="Athma Mind Care Hospital" 
+          width={238} 
+          height={61} 
+          className="w-[100px] h-auto md:w-[238px] md:h-auto object-contain" 
+          priority 
+        />
+        <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide flex-1 text-right">
+          Step 3 of 5 &middot; {pkg.name}
         </p>
       </div>
 
@@ -233,8 +240,8 @@ export default function AssessmentPage({ packageId }) {
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left — selected package, full height */}
-        <div className="w-[400px] shrink-0 border-r border-line bg-white overflow-y-auto p-6">
+        {/* Left — selected package, hidden on mobile */}
+        <div className="hidden md:block w-[400px] shrink-0 border-r border-line bg-white overflow-y-auto p-6">
           <p className="text-[11px] font-semibold text-ink-soft uppercase tracking-wide mb-4">
             Your package
           </p>
@@ -315,30 +322,30 @@ export default function AssessmentPage({ packageId }) {
         </div>
 
         {/* Center — scrollable questions */}
-        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-8 py-8">
+        <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8">
           <div className="max-w-[640px] mx-auto">
             {CATEGORIES.map((cat, catIdx) => (
               <div
                 key={cat.id}
                 ref={(el) => (categoryRefs.current[catIdx] = el)}
                 data-index={catIdx}
-                className="mb-14 scroll-mt-6"
+                className="mb-10 md:mb-14 scroll-mt-4 md:scroll-mt-6"
               >
-                <p className="text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide mb-1.5">
+                <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide mb-1 md:mb-1.5">
                   Questions {cat.range}
                 </p>
-                <h2 className="font-brand text-xl font-semibold text-teal-900 mb-6">
+                <h2 className="font-brand text-lg md:text-xl font-semibold text-teal-900 mb-4 md:mb-6">
                   Eysenck Personality Inventory
                 </h2>
 
-                <div className="space-y-4">
+                <div className="space-y-3 md:space-y-4">
                   {cat.questions.map((question, qIdxInBlock) => {
                     const key = `${catIdx}-${qIdxInBlock}`;
                     const selected = answers[key];
                     runningIndex += 1;
                     return (
-                      <div key={key} className="bg-white border border-line rounded-card p-5">
-                        <p className="text-[14.5px] font-medium text-ink mb-3.5">
+                      <div key={key} className="bg-white border border-line rounded-xl md:rounded-card p-4 md:p-5">
+                        <p className="text-[12px] md:text-[14.5px] font-medium text-ink mb-2.5 md:mb-3.5">
                           {runningIndex}. {question}
                         </p>
                         <div className="flex flex-wrap gap-2">
@@ -346,7 +353,7 @@ export default function AssessmentPage({ packageId }) {
                             <button
                               key={option}
                               onClick={() => handleAnswer(catIdx, qIdxInBlock, option)}
-                              className={`px-5 py-2 rounded-full text-[13px] font-medium border transition-colors ${
+                              className={`px-4 md:px-5 py-1.5 md:py-2 rounded-full text-[11px] md:text-[13px] font-medium border transition-colors ${
                                 selected === option
                                   ? "bg-coral-600 border-coral-600 text-white"
                                   : "bg-[#FCFDFC] border-line text-ink hover:border-coral-300"
@@ -363,11 +370,11 @@ export default function AssessmentPage({ packageId }) {
               </div>
             ))}
 
-            <div className="pb-10">
+            <div className="pb-8 md:pb-10">
               <button
                 type="button"
                 disabled={answeredCount < totalQuestions}
-                className="w-full py-3.5 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14.5px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {answeredCount < totalQuestions
                   ? `Answer all questions (${answeredCount}/${totalQuestions})`
@@ -377,8 +384,8 @@ export default function AssessmentPage({ packageId }) {
           </div>
         </div>
 
-        {/* Right — question-range sidebar, full height (heading removed per request) */}
-        <div className="w-[400px] shrink-0 border-l border-line bg-white overflow-y-auto py-6 px-3">
+        {/* Right — question-range sidebar, hidden on mobile */}
+        <div className="hidden md:block w-[400px] shrink-0 border-l border-line bg-white overflow-y-auto py-6 px-3">
           {CATEGORIES.map((cat, idx) => {
             const complete = isCategoryComplete(idx);
             const active = activeCategory === idx;

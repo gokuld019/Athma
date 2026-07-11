@@ -44,16 +44,15 @@ export default function RegisterPage() {
         name: data.fullName,
         email: data.email || undefined,
         phone: data.phone,
-        address: data.location, // form only collects one location field —
-        location: data.location, // sent for both, since API expects both keys
-        gender: data.gender.toLowerCase(), // API expects lowercase: "male"/"female"/"other"
-        role: "patient", // hidden — never shown or editable in the form
+        address: data.location,
+        location: data.location,
+        gender: data.gender.toLowerCase(),
+        role: "patient",
       });
 
       if (res.data.status === "success") {
         const { user, access_token, token_type } = res.data.data;
 
-        // Auto-login: store the token now so the rest of the flow is authenticated
         localStorage.setItem("athma_token", access_token);
         localStorage.setItem("athma_token_type", token_type);
         localStorage.setItem("athma_user", JSON.stringify(user));
@@ -61,7 +60,6 @@ export default function RegisterPage() {
         setPatientId(user.id);
         setShowSuccess(true);
 
-        // Auto-redirect after showing the success popup
         setTimeout(() => {
           goToPackages(user.id);
         }, 1800);
@@ -76,55 +74,55 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="max-w-[1220px] mx-auto px-5 py-10 relative">
+    <div className="max-w-[1220px] mx-auto px-4 md:px-5 py-6 md:py-10 relative">
       <PulseProgress current={0} />
 
-      <div className="bg-card border border-line rounded-card p-7">
-        <p className="text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide mb-1.5">
+      <div className="bg-card border border-line rounded-xl md:rounded-card p-4 md:p-7">
+        <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide mb-1 md:mb-1.5">
           Step 1 of 4
         </p>
-        <h1 className="font-brand text-2xl font-semibold text-teal-900 mb-1">
+        <h1 className="font-brand text-lg md:text-2xl font-semibold text-teal-900 mb-0.5 md:mb-1">
           Let&apos;s get you registered
         </h1>
-        <p className="text-ink-soft text-[14.5px] mb-6">
+        <p className="text-ink-soft text-xs md:text-[14.5px] mb-4 md:mb-6">
           Takes about a minute. Matches you to the right care package.
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
-          <div className="grid grid-cols-2 gap-4 mb-4.5">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4.5">
             <div>
-              <label className="block text-[13px] font-medium mb-1.5">Full name</label>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Full name</label>
               <input
                 type="text"
                 placeholder="Arun Kumar"
                 {...register("fullName")}
-                className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
               {errors.fullName && (
-                <p className="text-coral-600 text-xs mt-1">{errors.fullName.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.fullName.message}</p>
               )}
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-1.5">Age</label>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Age</label>
               <input
                 type="number"
                 placeholder="34"
                 {...register("age")}
-                className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
               {errors.age && (
-                <p className="text-coral-600 text-xs mt-1">{errors.age.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.age.message}</p>
               )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-4.5">
+          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4.5">
             <div>
-              <label className="block text-[13px] font-medium mb-1.5">Gender</label>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Gender</label>
               <select
                 {...register("gender")}
                 defaultValue=""
-                className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               >
                 <option value="" disabled>Select</option>
                 <option>Male</option>
@@ -132,75 +130,75 @@ export default function RegisterPage() {
                 <option>Other</option>
               </select>
               {errors.gender && (
-                <p className="text-coral-600 text-xs mt-1">{errors.gender.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.gender.message}</p>
               )}
             </div>
             <div>
-              <label className="block text-[13px] font-medium mb-1.5">Phone</label>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Phone</label>
               <input
                 type="tel"
                 placeholder="98765 43210"
                 {...register("phone")}
-                className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
               {errors.phone && (
-                <p className="text-coral-600 text-xs mt-1">{errors.phone.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.phone.message}</p>
               )}
             </div>
           </div>
 
-          <div className="mb-4.5">
-            <label className="block text-[13px] font-medium mb-1.5">
+          <div className="mb-3 md:mb-4.5">
+            <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
               Email <span className="text-ink-soft font-normal">(optional)</span>
             </label>
             <input
               type="email"
               placeholder="arun@email.com"
               {...register("email")}
-              className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
             />
             {errors.email && (
-              <p className="text-coral-600 text-xs mt-1">{errors.email.message}</p>
+              <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.email.message}</p>
             )}
           </div>
 
-          <div className="mb-6">
-            <label className="block text-[13px] font-medium mb-1.5">Location</label>
+          <div className="mb-4 md:mb-6">
+            <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Location</label>
             <input
               type="text"
               placeholder="House no, street, city"
               {...register("location")}
-              className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
             />
             {errors.location && (
-              <p className="text-coral-600 text-xs mt-1">{errors.location.message}</p>
+              <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.location.message}</p>
             )}
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14.5px] transition-colors disabled:opacity-60"
+            className="w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60"
           >
             {isSubmitting ? "Registering..." : "Continue to packages"}
           </button>
         </form>
 
         {/* Login Button - placed below the form button */}
-        <div className="mt-4 text-center">
-          <p className="text-ink-soft text-[14px] mb-2">
+        <div className="mt-3 md:mt-4 text-center">
+          <p className="text-ink-soft text-xs md:text-[14px] mb-1.5 md:mb-2">
             Already have an account?
           </p>
           <Link
             href="/patient/login"
-            className="inline-block w-full py-3.5 rounded-[10px] bg-transparent border-2 border-coral-600 hover:bg-coral-50 text-coral-600 font-semibold text-[14.5px] transition-colors text-center"
+            className="inline-block w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-transparent border-2 border-coral-600 hover:bg-coral-50 text-coral-600 font-semibold text-[13px] md:text-[14.5px] transition-colors text-center"
           >
             Log in
           </Link>
         </div>
       </div>
 
-      <p className="text-center text-xs text-ink-soft mt-4">
+      <p className="text-center text-[10px] md:text-xs text-ink-soft mt-3 md:mt-4">
         Your details are shared only with your assigned doctor.
       </p>
 

@@ -61,78 +61,79 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg px-5 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-bg px-4 md:px-5 py-6 md:py-10">
       <div className="w-full max-w-[420px]">
         <div className="flex items-center justify-center gap-2.5 mr-3">
           
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4 md:mb-6">
            <Image
              src="/Athmalogo.webp"
              alt="Athma Mind Care Hospital"
-             width={280}
-             height={90}
+             width={180}
+             height={58}
+             className="md:w-[238px] md:h-[61px]"
              priority
            />
          </div>
         </div>
 
-        <div className="bg-card border border-line rounded-card p-7">
-          <h1 className="font-brand text-2xl font-semibold text-teal-900 mb-1">
+        <div className="bg-card border border-line rounded-xl md:rounded-card p-5 md:p-7">
+          <h1 className="font-brand text-xl md:text-2xl font-semibold text-teal-900 mb-0.5 md:mb-1">
             Welcome back
           </h1>
-          <p className="text-ink-soft text-[14.5px] mb-6">
+          <p className="text-ink-soft text-xs md:text-[14.5px] mb-5 md:mb-6">
             Sign in with your registered phone number to continue.
           </p>
 
           <form onSubmit={handleSubmit(onSubmit)} noValidate>
-            <div className="mb-4.5">
-              <label className="block text-[13px] font-medium mb-1.5">
+            <div className="mb-3 md:mb-4.5">
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
                 Phone number
               </label>
               <input
                 type="tel"
                 placeholder="9876543210"
                 {...register("username")}
-                className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
               {errors.username && (
-                <p className="text-coral-600 text-xs mt-1">{errors.username.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.username.message}</p>
               )}
             </div>
 
-            <div className="mb-2">
-              <label className="block text-[13px] font-medium mb-1.5">Password</label>
+            <div className="mb-1.5 md:mb-2">
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••"
                   {...register("password")}
-                  className="w-full px-3.5 py-2.5 pr-11 border border-line rounded-[9px] text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+                  className="w-full px-3 md:px-3.5 py-2 md:py-2.5 pr-10 md:pr-11 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-ink-soft"
+                  className="absolute right-2.5 md:right-3 top-1/2 -translate-y-1/2 text-ink-soft"
                   tabIndex={-1}
                 >
-                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  {showPassword ? <EyeOff size={15} className="md:w-[17px] md:h-[17px]" /> : <Eye size={15} className="md:w-[17px] md:h-[17px]" />}
                 </button>
               </div>
               {errors.password && (
-                <p className="text-coral-600 text-xs mt-1">{errors.password.message}</p>
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.password.message}</p>
               )}
             </div>
 
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14.5px] transition-colors disabled:opacity-60 mt-5"
+              className="w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60 mt-4 md:mt-5"
             >
               {isSubmitting ? "Signing in..." : "Sign in"}
             </button>
           </form>
 
-          <p className="text-center text-[13px] text-ink-soft mt-5">
+          <p className="text-center text-[11px] md:text-[13px] text-ink-soft mt-4 md:mt-5">
             New patient?{" "}
             <Link href="/patient/register" className="text-teal-700 font-semibold">
               Register here
