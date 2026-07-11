@@ -92,7 +92,7 @@ export default function LoginPage() {
               </label>
               <input
                 type="tel"
-                placeholder="9876543210"
+                placeholder="Phone Number"
                 {...register("username")}
                 className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />

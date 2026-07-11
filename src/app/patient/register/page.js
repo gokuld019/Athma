@@ -94,7 +94,7 @@ export default function RegisterPage() {
               <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Full name</label>
               <input
                 type="text"
-                placeholder="Arun Kumar"
+                placeholder="Full Name"
                 {...register("fullName")}
                 className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
@@ -106,7 +106,7 @@ export default function RegisterPage() {
               <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Age</label>
               <input
                 type="number"
-                placeholder="34"
+                placeholder="Age"
                 {...register("age")}
                 className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
@@ -137,7 +137,7 @@ export default function RegisterPage() {
               <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Phone</label>
               <input
                 type="tel"
-                placeholder="98765 43210"
+                placeholder="Phone Number"
                 {...register("phone")}
                 className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
               />
@@ -153,7 +153,7 @@ export default function RegisterPage() {
             </label>
             <input
               type="email"
-              placeholder="arun@email.com"
+              placeholder="Email"
               {...register("email")}
               className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
             />
@@ -166,7 +166,7 @@ export default function RegisterPage() {
             <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Location</label>
             <input
               type="text"
-              placeholder="House no, street, city"
+              placeholder="Location"
               {...register("location")}
               className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
             />
