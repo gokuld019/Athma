@@ -74,7 +74,7 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="max-w-[1220px] mx-auto px-4 md:px-5 py-6 md:py-10 relative">
+    <div className="max-w-[900px] mx-auto px-4 md:px-5 py-6 md:py-10 relative">
       <PulseProgress current={0} />
 
       <div className="bg-card border border-line rounded-xl md:rounded-card p-4 md:p-7">
@@ -175,13 +175,18 @@ export default function RegisterPage() {
             )}
           </div>
 
+<div className="w-full flex justify-center">
+  
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60"
+            className="w-[40%]  py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60"
           >
-            {isSubmitting ? "Registering..." : "Continue to packages"}
+            {isSubmitting ? "Registering..." : "Register"}
           </button>
+</div>
+
+
         </form>
 
         {/* Login Button - placed below the form button */}
@@ -191,7 +196,7 @@ export default function RegisterPage() {
           </p>
           <Link
             href="/patient/login"
-            className="inline-block w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-transparent border-2 border-coral-600 hover:bg-coral-50 text-coral-600 font-semibold text-[13px] md:text-[14.5px] transition-colors text-center"
+            className="inline-block w-[40%] py-3 md:py-3.5  bg-transparent underline  text-coral-600 font-semibold text-[13px] md:text-[16px] transition-colors text-center"
           >
             Log in
           </Link>
