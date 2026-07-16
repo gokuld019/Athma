@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 
-export default function ThankYouPage() {
+function ThankYouContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [packageId, setPackageId] = useState(null);
@@ -92,5 +92,13 @@ export default function ThankYouPage() {
         Need urgent help? Call the hospital directly instead of waiting for a reply.
       </p>
     </div>
+  );
+}
+
+export default function ThankYouPage() {
+  return (
+    <Suspense fallback={null}>
+      <ThankYouContent />
+    </Suspense>
   );
 }
