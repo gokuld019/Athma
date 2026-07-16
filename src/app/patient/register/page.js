@@ -18,7 +18,12 @@ const registerSchema = z.object({
   }),
   phone: z.string().min(10, "Enter a valid phone number"),
   email: z.string().email("Enter a valid email").optional().or(z.literal("")),
-  location: z.string().min(5, "Enter the patient's location"),
+  address: z.string().min(5, "Enter the full address").max(200, "Address is too long"),
+  city: z.string().min(2, "Enter the city").max(50, "City name is too long"),
+  state: z.string().min(2, "Enter the state").max(50, "State name is too long"),
+  pincode: z.string().min(6, "Enter a valid 6-digit pincode").max(6, "Enter a valid 6-digit pincode").regex(/^\d{6}$/, "Enter a valid 6-digit pincode"),
+  location: z.string().min(2, "Enter the patient's location"),
+  referredBy: z.string().optional().or(z.literal("")),
 });
 
 export default function RegisterPage() {
@@ -44,24 +49,40 @@ export default function RegisterPage() {
         name: data.fullName,
         email: data.email || undefined,
         phone: data.phone,
-        address: data.location,
-        location: data.location,
+        address: data.address,
+        city: data.city,
+        state: data.state,
+        country: "India",
+        pincode: data.pincode,
+        referred_by: data.referredBy || undefined,
         gender: data.gender.toLowerCase(),
+        location: data.location,
         role: "patient",
       });
 
       if (res.data.status === "success") {
-        const { user, access_token, token_type } = res.data.data;
+        const { user, access_token, token_type, patient_details } = res.data.data;
 
+        // Store auth tokens
         localStorage.setItem("athma_token", access_token);
         localStorage.setItem("athma_token_type", token_type);
         localStorage.setItem("athma_user", JSON.stringify(user));
+        
+        // Store patient details
+        if (patient_details) {
+          localStorage.setItem("athma_patient_details", JSON.stringify(patient_details));
+        }
+        
+        // Store patient ID
+        const userId = user.id || patient_details?.id;
+        localStorage.setItem("athma_patient_id", String(userId));
 
-        setPatientId(user.id);
+        setPatientId(userId);
         setShowSuccess(true);
 
+        // Auto-navigate after delay
         setTimeout(() => {
-          goToPackages(user.id);
+          goToPackages(userId);
         }, 1800);
       } else {
         toast.error(res.data.message || "Registration failed, please try again");
@@ -89,6 +110,7 @@ export default function RegisterPage() {
         </p>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate>
+          {/* Row 1: Full Name & Age */}
           <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4.5">
             <div>
               <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Full name</label>
@@ -116,6 +138,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Row 2: Gender & Phone */}
           <div className="grid grid-cols-2 gap-3 md:gap-4 mb-3 md:mb-4.5">
             <div>
               <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Gender</label>
@@ -147,6 +170,7 @@ export default function RegisterPage() {
             </div>
           </div>
 
+          {/* Row 3: Email (Full Width) */}
           <div className="mb-3 md:mb-4.5">
             <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
               Email <span className="text-ink-soft font-normal">(optional)</span>
@@ -162,31 +186,111 @@ export default function RegisterPage() {
             )}
           </div>
 
-          <div className="mb-4 md:mb-6">
-            <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">Location</label>
-            <input
-              type="text"
-              placeholder="Location"
-              {...register("location")}
-              className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+          {/* Row 4: Full Address (Full Width) */}
+          <div className="mb-3 md:mb-4.5">
+            <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+              Full Address <span className="text-coral-600">*</span>
+            </label>
+            <textarea
+              placeholder="House/Flat No., Street, Area, Landmark"
+              {...register("address")}
+              rows={2}
+              className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 resize-none"
             />
-            {errors.location && (
-              <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.location.message}</p>
+            {errors.address && (
+              <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.address.message}</p>
             )}
           </div>
 
-<div className="w-full flex justify-center">
-  
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-[40%]  py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60"
-          >
-            {isSubmitting ? "Registering..." : "Register"}
-          </button>
-</div>
+          {/* Row 5: City, State, Pincode */}
+          <div className="grid grid-cols-3 gap-3 md:gap-4 mb-3 md:mb-4.5">
+            <div>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+                City <span className="text-coral-600">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="City"
+                {...register("city")}
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              />
+              {errors.city && (
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.city.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+                State <span className="text-coral-600">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="State"
+                {...register("state")}
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              />
+              {errors.state && (
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.state.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+                Pincode <span className="text-coral-600">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="6-digit pincode"
+                maxLength={6}
+                {...register("pincode")}
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              />
+              {errors.pincode && (
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.pincode.message}</p>
+              )}
+            </div>
+          </div>
 
+          {/* Row 6: Location & Referred By */}
+          <div className="grid grid-cols-2 gap-3 md:gap-4 mb-4 md:mb-6">
+            <div>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+                Location <span className="text-coral-600">*</span>
+              </label>
+              <input
+                type="text"
+                placeholder="District/Area"
+                {...register("location")}
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              />
+              {errors.location && (
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.location.message}</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
+                Referred By <span className="text-ink-soft font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Doctor/Clinic/Person name"
+                {...register("referredBy")}
+                className="w-full px-3 md:px-3.5 py-2 md:py-2.5 border border-line rounded-lg md:rounded-[9px] text-[13px] md:text-[14.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
+              />
+              {errors.referredBy && (
+                <p className="text-coral-600 text-[10px] md:text-xs mt-1">{errors.referredBy.message}</p>
+              )}
+            </div>
+          </div>
 
+          {/* Submit Button */}
+          <div className="w-full flex justify-center">
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-[40%] py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-60"
+            >
+              {isSubmitting ? "Registering..." : "Register"}
+            </button>
+          </div>
         </form>
 
         {/* Login Button - placed below the form button */}
@@ -196,7 +300,7 @@ export default function RegisterPage() {
           </p>
           <Link
             href="/patient/login"
-            className="inline-block w-[40%] py-3 md:py-3.5  bg-transparent underline  text-coral-600 font-semibold text-[13px] md:text-[16px] transition-colors text-center"
+            className="inline-block w-[40%] py-3 md:py-3.5 bg-transparent underline text-coral-600 font-semibold text-[13px] md:text-[16px] transition-colors text-center"
           >
             Log in
           </Link>

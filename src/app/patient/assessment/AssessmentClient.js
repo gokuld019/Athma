@@ -1,184 +1,675 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Image from "next/image";
-import { User, Briefcase, Venus, Baby, HeartPulse, Sparkles, Clock, FileQuestion } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Clock, FileQuestion, AlertCircle, CheckCircle2, ChevronRight, Send, Edit3, PartyPopper, ArrowRight, X } from "lucide-react";
 
-const PACKAGES = {
-  "standard-adult": {
-    name: "Standard Adult",
-    age: "18 - 60 Years",
-    price: 399,
-    questions: 20,
-    duration: "15 - 20 mins",
-    icon: User,
-    features: ["General Mental Health Screening", "Doctor Review within 24 Hours", "WhatsApp Report"],
-  },
-  executive: {
-    name: "Executive",
-    age: "18 - 60 Years",
-    price: 499,
-    questions: 35,
-    duration: "20 - 25 mins",
-    icon: Briefcase,
-    features: ["Advanced Health Screening", "Priority Doctor Review", "WhatsApp Report + Consultation"],
-  },
-  "executive-women": {
-    name: "Executive Women",
-    age: "All Women",
-    price: 499,
-    questions: 35,
-    duration: "20 - 25 mins",
-    icon: Venus,
-    features: ["Women's Wellness Assessment", "Priority Doctor Review", "WhatsApp Report + Consultation"],
-  },
-  child: {
-    name: "Child",
-    age: "0 - 12 Years",
-    price: 399,
-    questions: 15,
-    duration: "10 - 15 mins",
-    icon: Baby,
-    features: ["Child Behaviour Assessment", "Doctor Review", "WhatsApp Report"],
-  },
-  elderly: {
-    name: "Elderly People",
-    age: "Above 60 Years",
-    price: 399,
-    questions: 20,
-    duration: "15 - 20 mins",
-    icon: HeartPulse,
-    features: ["Senior Wellness Assessment", "Doctor Review", "WhatsApp Report"],
-  },
-  adolescence: {
-    name: "Adolescence",
-    age: "13 - 18 Years",
-    price: 300,
-    questions: 15,
-    duration: "10 - 15 mins",
-    icon: Sparkles,
-    features: ["Teen Mental Health Assessment", "Doctor Review", "WhatsApp Report"],
-  },
-};
-
-// Bilingual EPI Questions - English and Tamil
-const EPI_QUESTIONS = [
-  { en: "Do you often long for excitement?", ta: "நீங்கள் அடிக்கடி உற்சாகத்தை விரும்புகிறீர்களா?" },
-  { en: "Do you often need understanding friends to cheer you up?", ta: "உங்களை உற்சாகப்படுத்த புரிந்துகொள்ளும் நண்பர்கள் உங்களுக்கு அடிக்கடி தேவையா?" },
-  { en: "Are you usually carefree?", ta: "நீங்கள் வழக்கமாக கவலையற்றவரா?" },
-  { en: "Do you find it very hard to take no for an answer?", ta: "மறுப்பை ஏற்க உங்களுக்கு மிகவும் கடினமாக உள்ளதா?" },
-  { en: "Do you stop and think things over before doing anything?", ta: "எதையும் செய்வதற்கு முன் நிறுத்தி யோசிக்கிறீர்களா?" },
-  { en: "If you say you will do something do you always keep your promise, no matter how inconvenient it might be to do so?", ta: "ஏதாவது செய்வதாக சொன்னால், எவ்வளவு சிரமமாக இருந்தாலும் உங்கள் வாக்குறுதியை காப்பாற்றுகிறீர்களா?" },
-  { en: "Do your moods go up and down?", ta: "உங்கள் மனநிலை ஏற்ற இறக்கமாக உள்ளதா?" },
-  { en: "Do you generally do and say things quickly without stopping to think?", ta: "பொதுவாக யோசிக்காமல் விரைவாக செயல்பட்டு பேசுகிறீர்களா?" },
-  { en: "Do you ever feel 'just miserable' for no good reason?", ta: "எந்த காரணமுமின்றி 'மிகவும் துயரமாக' உணர்கிறீர்களா?" },
-  { en: "Would you do almost anything for a dare?", ta: "சவாலுக்காக எதையும் செய்வீர்களா?" },
-  { en: "Do you suddenly feel shy when you want to talk to an attractive stranger?", ta: "அழகான அந்நியரிடம் பேச விரும்பும்போது திடீரென வெட்கப்படுகிறீர்களா?" },
-  { en: "Once in a while do you lose your temper and get angry?", ta: "எப்போதாவது கோபத்தை இழந்து கோபப்படுகிறீர்களா?" },
-  { en: "Do you often do things on the spur of the moment?", ta: "திடீர் தூண்டுதலில் அடிக்கடி செயல்படுகிறீர்களா?" },
-  { en: "Do you often worry about things you should have done or said?", ta: "நீங்கள் செய்திருக்க வேண்டிய அல்லது சொல்லியிருக்க வேண்டிய விஷயங்களைப் பற்றி அடிக்கடி கவலைப்படுகிறீர்களா?" },
-  { en: "Generally do you prefer reading to meeting people?", ta: "பொதுவாக மக்களை சந்திப்பதை விட படிப்பதை விரும்புகிறீர்களா?" },
-  { en: "Are your feelings rather easily hurt?", ta: "உங்கள் உணர்வுகள் எளிதில் பாதிக்கப்படுகிறதா?" },
-  { en: "Do you like going out a lot?", ta: "அதிகமாக வெளியே செல்வதை விரும்புகிறீர்களா?" },
-  { en: "Do you occasionally have thoughts and ideas that you would not like other people to know about?", ta: "மற்றவர்கள் அறிய விரும்பாத எண்ணங்களும் யோசனைகளும் எப்போதாவது உங்களுக்கு உண்டா?" },
-  { en: "Are you sometimes bubbling over with energy and sometimes very sluggish?", ta: "சில நேரங்களில் ஆற்றலுடனும் சில நேரங்களில் மந்தமாகவும் இருக்கிறீர்களா?" },
-  { en: "Do you prefer to have few but special friends?", ta: "குறைவான ஆனால் சிறப்பான நண்பர்களை விரும்புகிறீர்களா?" },
-  { en: "Do you daydream a lot?", ta: "நிறைய பகல் கனவு காண்கிறீர்களா?" },
-  { en: "When people shout at you do you shout back?", ta: "மக்கள் உங்களைப் பார்த்து கத்தும்போது நீங்களும் திருப்பி கத்துகிறீர்களா?" },
-  { en: "Are you often troubled about feelings of guilt?", ta: "குற்ற உணர்வுகளால் அடிக்கடி துன்பப்படுகிறீர்களா?" },
-  { en: "Are all your habits good and desirable ones?", ta: "உங்கள் பழக்கங்கள் அனைத்தும் நல்ல மற்றும் விரும்பத்தக்கவையா?" },
-  { en: "Can you usually let yourself go and enjoy yourself a lot at a lively party?", ta: "உற்சாகமான விருந்தில் உங்களை தளர்த்தி மகிழ முடிகிறதா?" },
-  { en: "Would you call yourself tense or 'highly strung'?", ta: "உங்களை பதட்டமானவர் அல்லது 'மிகவும் இறுக்கமானவர்' என்று அழைப்பீர்களா?" },
-  { en: "Do other people think of you as being very lively?", ta: "மற்றவர்கள் உங்களை மிகவும் உற்சாகமானவராக நினைக்கிறார்களா?" },
-  { en: "After you have done something important, do you come away feeling you could have done better?", ta: "முக்கியமான ஒன்றை செய்த பிறகு, இன்னும் சிறப்பாக செய்திருக்கலாம் என்று உணர்கிறீர்களா?" },
-  { en: "Are you mostly quiet when you are with other people?", ta: "மற்றவர்களுடன் இருக்கும்போது பெரும்பாலும் அமைதியாக இருக்கிறீர்களா?" },
-  { en: "Do you sometimes gossip?", ta: "எப்போதாவது வதந்தி பேசுகிறீர்களா?" },
-  { en: "Do ideas run through your head so that you cannot sleep?", ta: "எண்ணங்கள் உங்கள் தலையில் ஓடுவதால் தூங்க முடியவில்லையா?" },
-  { en: "If there is something you want to know about, would you rather look it up in a book than talk to someone about it?", ta: "ஏதாவது தெரிந்துகொள்ள விரும்பினால், அதைப் பற்றி யாரிடமாவது பேசுவதை விட புத்தகத்தில் பார்ப்பீர்களா?" },
-  { en: "Do you get palpitations or thumping in your heart?", ta: "உங்கள் இதயத்தில் படபடப்பு அல்லது துடிப்பு ஏற்படுகிறதா?" },
-  { en: "Do you like the kind of work that you need to pay close attention to?", ta: "கவனமாக கவனிக்க வேண்டிய வேலையை விரும்புகிறீர்களா?" },
-  { en: "Do you get attacks of shaking or trembling?", ta: "நடுக்கம் அல்லது நடுங்கல் தாக்குதல்கள் ஏற்படுகிறதா?" },
-  { en: "Would you always declare everything at customs, even if you knew you could never be found out?", ta: "கண்டுபிடிக்க முடியாது என்று தெரிந்தாலும், சுங்கத்தில் எல்லாவற்றையும் அறிவிப்பீர்களா?" },
-  { en: "Do you hate being with a crowd who play jokes on one another?", ta: "ஒருவருக்கொருவர் கேலி செய்யும் கூட்டத்துடன் இருப்பதை வெறுக்கிறீர்களா?" },
-  { en: "Are you an irritable person?", ta: "நீங்கள் எரிச்சலான நபரா?" },
-  { en: "Do you like doing things in which you have to act quickly?", ta: "விரைவாக செயல்பட வேண்டிய விஷயங்களை செய்ய விரும்புகிறீர்களா?" },
-  { en: "Do you worry about awful things that might happen?", ta: "நடக்கக்கூடிய மோசமான விஷயங்களைப் பற்றி கவலைப்படுகிறீர்களா?" },
-  { en: "Are you slow and unhurried in the way you move?", ta: "உங்கள் அசைவுகளில் மெதுவாகவும் அவசரமில்லாமலும் இருக்கிறீர்களா?" },
-  { en: "Have you ever been late for an appointment or work?", ta: "எப்போதாவது சந்திப்பு அல்லது வேலைக்கு தாமதமாக சென்றதுண்டா?" },
-  { en: "Do you have many nightmares?", ta: "உங்களுக்கு நிறைய கெட்ட கனவுகள் வருகிறதா?" },
-  { en: "Do you like talking to people so much that you never miss a chance of talking to a stranger?", ta: "மக்களிடம் பேசுவதை மிகவும் விரும்பி, அந்நியரிடம் பேசும் வாய்ப்பை ஒருபோதும் தவறவிடமாட்டீர்களா?" },
-  { en: "Are you troubled by aches and pains?", ta: "வலிகள் மற்றும் வேதனைகளால் துன்பப்படுகிறீர்களா?" },
-  { en: "Would you be very unhappy if you could not see lots of people most of the time?", ta: "பெரும்பாலான நேரம் பலரைப் பார்க்க முடியாவிட்டால் மிகவும் மகிழ்ச்சியற்றவராக இருப்பீர்களா?" },
-  { en: "Would you call yourself a nervous person?", ta: "உங்களை ஒரு பதட்டமான நபர் என்று அழைப்பீர்களா?" },
-  { en: "Of all the people you know, are there some whom you definitely do not like?", ta: "உங்களுக்குத் தெரிந்தவர்களில், நிச்சயமாக பிடிக்காத சிலர் இருக்கிறார்களா?" },
-  { en: "Would you say that you were fairly self-confident?", ta: "நீங்கள் ஓரளவு தன்னம்பிக்கை உள்ளவர் என்று சொல்வீர்களா?" },
-  { en: "Are you easily hurt when people find fault with you or your work?", ta: "மக்கள் உங்களிடம் அல்லது உங்கள் வேலையில் குறை காணும்போது எளிதில் புண்படுகிறீர்களா?" },
-  { en: "Do you find it hard to really enjoy yourself at a lively party?", ta: "உற்சாகமான விருந்தில் உண்மையாக மகிழ்வது கடினமாக உள்ளதா?" },
-  { en: "Are you troubled by feelings of inferiority?", ta: "தாழ்வு மனப்பான்மை உணர்வுகளால் துன்பப்படுகிறீர்களா?" },
-  { en: "Can you easily get some life into a dull party?", ta: "சலிப்பான விருந்தில் எளிதாக உற்சாகத்தை கொண்டு வர முடிகிறதா?" },
-  { en: "Do you sometimes talk about things you know nothing about?", ta: "உங்களுக்கு எதுவும் தெரியாத விஷயங்களைப் பற்றி எப்போதாவது பேசுகிறீர்களா?" },
-  { en: "Do you worry about your health?", ta: "உங்கள் உடல்நலம் பற்றி கவலைப்படுகிறீர்களா?" },
-  { en: "Do you like playing pranks on others?", ta: "மற்றவர்களிடம் குறும்பு செய்வதை விரும்புகிறீர்களா?" },
-  { en: "Do you suffer from sleeplessness?", ta: "தூக்கமின்மையால் பாதிக்கப்படுகிறீர்களா?" },
-];
-
-function chunk(arr, groupSizes) {
-  const groups = [];
-  let start = 0;
-  for (const size of groupSizes) {
-    groups.push(arr.slice(start, start + size));
-    start += size;
+function chunk(arr, size) {
+  const chunks = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
   }
-  return groups;
+  return chunks;
 }
 
-const [block1, block2, block3] = chunk(EPI_QUESTIONS, [20, 20, 17]);
-
-const CATEGORIES = [
-  { id: "block-1", range: "1 - 20", questions: block1 },
-  { id: "block-2", range: "21 - 40", questions: block2 },
-  { id: "block-3", range: "41 - 57", questions: block3 },
-];
-
-const OPTIONS = [
-  { en: "Yes", ta: "ஆம்" },
-  { en: "No", ta: "இல்லை" },
-];
-
-export default function AssessmentPage({ packageId }) {
+// Tamil translations for common answer options
+// Tamil translations for common answer options
+const TAMIL_TRANSLATIONS = {
+  // EPI/MPQ Yes/No options
+  "YES": "ஆம்",
+  "NO": "இல்லை",
+  "Yes": "ஆம்",
+  "No": "இல்லை",
+  "yes": "ஆம்",
+  "no": "இல்லை",
   
-  const pkg = PACKAGES[packageId] || PACKAGES.executive;
-  const PkgIcon = pkg.icon;
+  // Likert scale options (GHQ/PHQ)
+  "Not at all": "நிச்சயமாக இல்லை",
+  "No more than usual": "நான் அப்படி நினைக்கவில்லை",
+  "Rather more than usual": "என் மனதில் தோன்றிச் சென்றது",
+  "Much more than usual": "நிச்சயமாகத் தோன்றியது",
+  
+  // Alternative Likert options
+  "Better than usual": "வழக்கத்தை விட சிறப்பாக",
+  "Same as usual": "வழக்கம் போல்",
+  "Less than usual": "வழக்கத்தை விட குறைவாக",
+  "Much less than usual": "வழக்கத்தை விட மிகக் குறைவாக",
+  
+  // GHQ specific options - FIXED
+  "Worse than usual": "வழக்கத்தை விட மோசமாக",
+  "Much worse than usual": "வழக்கத்தை விட மிக மோசமாக",
+  
+  // PHQ-9 frequency options
+  "Not at all": "இல்லவே இல்லை",
+  "Several days": "சில நாட்கள்",
+  "More than half the days": "பாதிக்கு மேற்பட்ட நாட்கள்",
+  "Nearly every day": "கிட்டத்தட்ட தினமும்",
+  
+  // Additional common options
+  "Never": "ஒருபோதும் இல்லை",
+  "Rarely": "அரிதாக",
+  "Sometimes": "சில சமயம்",
+  "Often": "அடிக்கடி",
+  "Always": "எப்போதும்",
+  
+  "Strongly Disagree": "முற்றிலும் மறுக்கிறேன்",
+  "Disagree": "மறுக்கிறேன்",
+  "Neutral": "நடுநிலை",
+  "Agree": "ஏற்கிறேன்",
+  "Strongly Agree": "முற்றிலும் ஏற்கிறேன்",
+  
+  "Very Difficult": "மிகவும் கடினம்",
+  "Difficult": "கடினம்",
+  "Easy": "எளிது",
+  "Very Easy": "மிகவும் எளிது",
+};
 
+// Function to get Tamil translation for an option
+const getTamilTranslation = (optionText) => {
+  if (!optionText) return "";
+  const trimmed = optionText.trim();
+  
+  // Check for exact match first
+  if (TAMIL_TRANSLATIONS[trimmed]) {
+    return TAMIL_TRANSLATIONS[trimmed];
+  }
+  
+  // Check case-insensitive match
+  const lowerTrimmed = trimmed.toLowerCase();
+  for (const [key, value] of Object.entries(TAMIL_TRANSLATIONS)) {
+    if (key.toLowerCase() === lowerTrimmed) {
+      return value;
+    }
+  }
+  
+  return "";
+};
+
+// ============================================================
+// Category Complete Modal - Shows progress after each category
+// ============================================================
+function CategoryCompleteModal({ completedName, completedIndex, totalCategories, nextName, onContinue, onViewResults, loading }) {
+  return (
+    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-5">
+      <div className="bg-white rounded-2xl w-full max-w-[420px] p-6 text-center">
+        <span className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4 mx-auto">
+          <PartyPopper size={28} className="text-emerald-500" />
+        </span>
+
+        <h3 className="font-brand text-lg font-bold text-teal-900">
+          {completedName} completed!
+        </h3>
+
+        <p className="text-[13.5px] text-ink-soft mt-2">
+          You've completed{" "}
+          <span className="font-semibold text-teal-800">
+            {completedIndex}/{totalCategories}
+          </span>{" "}
+          {totalCategories === 1 ? "category" : "categories"}.
+        </p>
+
+        {/* Progress dots - showing completed vs remaining */}
+        <div className="flex items-center justify-center gap-1.5 mt-4 mb-5">
+          {Array.from({ length: totalCategories }, (_, i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                i < completedIndex ? "w-6 bg-emerald-500" : "w-6 bg-[#EFF1EE]"
+              }`}
+            />
+          ))}
+        </div>
+
+        {nextName ? (
+          <>
+            <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 mb-5">
+              <p className="text-[10.5px] font-semibold text-teal-700 uppercase tracking-wide mb-1">
+                Up Next
+              </p>
+              <p className="text-[14.5px] font-bold text-teal-900">{nextName}</p>
+            </div>
+            <button
+              onClick={onContinue}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-70"
+            >
+              {loading ? "Loading..." : `Continue to ${nextName}`}
+              {!loading && <ArrowRight size={16} />}
+            </button>
+          </>
+        ) : (
+          <>
+            <p className="text-[13px] text-ink-soft mb-5">
+              That's everything — great job! You can view your results now.
+            </p>
+            <button
+              onClick={onViewResults}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-teal-900 hover:bg-teal-800 text-white font-semibold text-[14px] transition-colors disabled:opacity-70"
+            >
+              {loading ? "Loading..." : "View Results"}
+              {!loading && <ArrowRight size={16} />}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// Thank You Modal - Shown after all categories are completed
+// ============================================================
+function ThankYouModal({ onClose }) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+      <div className="bg-white rounded-2xl w-full max-w-md p-8 text-center relative animate-in fade-in zoom-in duration-300">
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+        >
+          <X size={20} />
+        </button>
+
+        {/* Icon */}
+        <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
+          <CheckCircle2 size={40} className="text-emerald-500" />
+        </div>
+
+        {/* Title */}
+        <h2 className="text-2xl font-bold text-teal-900 mb-3">
+          Thank You! 🙏
+        </h2>
+
+        {/* Message */}
+        <div className="space-y-3 text-gray-600">
+          <p className="text-[15px] leading-relaxed">
+            Our team will verify all your responses and contact you soon.
+          </p>
+          <p className="text-[14px] font-medium text-teal-700 bg-teal-50 rounded-lg py-3 px-4">
+            We appreciate your time and trust in us! 💙
+          </p>
+        </div>
+
+        {/* Button */}
+        <button
+          onClick={onClose}
+          className="w-full mt-6 py-3 rounded-xl bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-all shadow-md hover:shadow-lg"
+        >
+          Back to Categories
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export default function AssessmentPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const subheadingIdParam = searchParams.get("subheading_id");
+  const packageIdParam = searchParams.get("package_id");
+
+  const [packageId, setPackageId] = useState(null);
+  const [subheadingId, setSubheadingId] = useState(null);
+  const [questions, setQuestions] = useState([]);
   const [answers, setAnswers] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [progress, setProgress] = useState(null);
+  const [subheadingInfo, setSubheadingInfo] = useState(null);
+  const [error, setError] = useState(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const [saveStatus, setSaveStatus] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+  const [assessmentType, setAssessmentType] = useState("epi");
+
+  const [packageSubheadings, setPackageSubheadings] = useState([]);
+  const [subheadingsLoaded, setSubheadingsLoaded] = useState(false);
+
+  // Completion popup state
+  const [completionInfo, setCompletionInfo] = useState(null);
+  const [popupLoading, setPopupLoading] = useState(false);
+
+  // Thank You modal state
+  const [showThankYou, setShowThankYou] = useState(false);
+
   const [activeCategory, setActiveCategory] = useState(0);
   const categoryRefs = useRef([]);
   const sidebarRefs = useRef([]);
   const scrollContainerRef = useRef(null);
+  const saveTimerRef = useRef(null);
+  const textareaRefs = useRef({});
 
-  const totalQuestions = CATEGORIES.reduce((sum, c) => sum + c.questions.length, 0);
-  const answeredCount = Object.keys(answers).length;
-  const progressPct = Math.round((answeredCount / totalQuestions) * 100);
+  // Resolve IDs from URL params or localStorage
+  useEffect(() => {
+    let pkgId = packageIdParam;
+    let subId = subheadingIdParam;
 
-  const handleAnswer = (catIdx, qIdx, option) => {
-    const key = `${catIdx}-${qIdx}`;
-    setAnswers((prev) => ({ ...prev, [key]: option }));
-  };
+    if (!pkgId) {
+      pkgId = localStorage.getItem("athma_current_assessment_package") ||
+              localStorage.getItem("athma_selected_package_id");
+    }
+    if (!subId) {
+      subId = localStorage.getItem("athma_current_assessment_subheading") ||
+             searchParams.get("category");
+    }
 
-  const isCategoryComplete = (catIdx) =>
-    CATEGORIES[catIdx].questions.every((_, qIdx) => answers[`${catIdx}-${qIdx}`]);
+    if (pkgId && subId) {
+      setPackageId(pkgId);
+      setSubheadingId(subId);
+      localStorage.setItem("athma_current_assessment_package", String(pkgId));
+      localStorage.setItem("athma_current_assessment_subheading", String(subId));
 
-  const scrollToCategory = (idx) => {
-    categoryRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
+      // Reset completion popup when landing on a new subheading
+      setCompletionInfo(null);
+      setPopupLoading(false);
+      setSubmitting(false);
+      setShowThankYou(false);
+      setSaveStatus({});
+    } else {
+      router.push("/patient/category");
+    }
+  }, [subheadingIdParam, packageIdParam, searchParams, router]);
+
+  // Auth headers
+  const getAuthHeaders = useCallback(() => {
+    const token = localStorage.getItem("athma_token");
+    const tokenType = localStorage.getItem("athma_token_type");
+    const role = localStorage.getItem("athma_role");
+
+    if (!token) {
+      router.push("/patient/login");
+      return null;
+    }
+
+    const headers = {
+      "Content-Type": "application/json",
+      "Authorization": tokenType ? `${tokenType} ${token}` : `Bearer ${token}`,
+    };
+    if (role) headers["X-User-Role"] = role;
+
+    return headers;
+  }, [router]);
+
+  // Determine assessment type
+  const determineAssessmentType = useCallback((subheadingName, packageName, fetchedQuestions) => {
+    const firstQType = fetchedQuestions?.[0]?.question_type;
+    if (firstQType === "likert") return "likert";
+    if (firstQType === "mpq") return "mpq";
+
+    const name = (subheadingName || "").toLowerCase();
+    const pkgName = (packageName || "").toLowerCase();
+
+    if (
+      name.includes("sct") ||
+      name.includes("sentence completion") ||
+      name.includes("sentence") ||
+      pkgName.includes("sct")
+    ) {
+      return "sct";
+    }
+
+    return "epi";
+  }, []);
+
+  // Fetch the ordered list of subheadings for this package
+  const fetchPackageSubheadings = useCallback(async () => {
+    if (!packageId) return null;
+    try {
+      const headers = getAuthHeaders();
+      if (!headers) return null;
+
+      const res = await fetch(
+        `https://api.crazystory.in/api/patient/packages/${packageId}/subheadings`,
+        { headers }
+      );
+      const data = await res.json();
+
+      if (res.ok && data.status !== "error") {
+        const list = data.data?.subheadings || [];
+        setPackageSubheadings(list);
+        return list;
+      }
+      return null;
+    } catch (err) {
+      console.error("Error fetching package subheadings list:", err);
+      return null;
+    } finally {
+      setSubheadingsLoaded(true);
+    }
+  }, [packageId, getAuthHeaders]);
 
   useEffect(() => {
-    sidebarRefs.current[activeCategory]?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-    });
-  }, [activeCategory]);
+    fetchPackageSubheadings();
+  }, [fetchPackageSubheadings]);
 
+  // Fetch questions and progress
+  const fetchAssessmentData = useCallback(async () => {
+    if (!packageId || !subheadingId) return;
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const headers = getAuthHeaders();
+      if (!headers) return;
+
+      // Fetch questions
+      const questionsRes = await fetch(
+        `https://api.crazystory.in/api/patient/questions/subheading/${subheadingId}`,
+        { headers }
+      );
+      const questionsData = await questionsRes.json();
+
+      if (!questionsRes.ok || questionsData.status === "error") {
+        if (questionsRes.status === 401) {
+          localStorage.clear();
+          router.push("/patient/login");
+          return;
+        }
+        throw new Error(questionsData.message || "Failed to load questions");
+      }
+
+      const fetchedQuestions = questionsData.data?.questions || [];
+
+      setQuestions(fetchedQuestions);
+      setSubheadingInfo(questionsData.data?.subheading || null);
+
+      // Determine assessment type
+      const subheadingName = questionsData.data?.subheading?.name || "";
+      const packageName = questionsData.data?.subheading?.package_name || "";
+      const type = determineAssessmentType(subheadingName, packageName, fetchedQuestions);
+      setAssessmentType(type);
+
+      // Initialize answers from previously answered questions
+      const initialAnswers = {};
+      fetchedQuestions.forEach(question => {
+        if (question.answered && question.user_answer !== undefined && question.user_answer !== null) {
+          initialAnswers[question.id] = question.user_answer;
+        }
+      });
+      setAnswers(initialAnswers);
+
+      // Set progress from the response
+      if (questionsData.data?.progress) {
+        setProgress(questionsData.data.progress);
+        setIsComplete(questionsData.data.progress.is_complete);
+      }
+
+      // Also fetch detailed progress
+      try {
+        const progressRes = await fetch(
+          `https://api.crazystory.in/api/patient/answers/progress?subheading_id=${subheadingId}`,
+          { headers }
+        );
+        const progressData = await progressRes.json();
+
+        if (progressRes.ok && progressData.status === "success") {
+          setProgress(progressData.data);
+          setIsComplete(progressData.data.is_complete);
+        }
+      } catch (err) {
+        console.log("Additional progress fetch failed, using questions data");
+      }
+    } catch (err) {
+      console.error("Error fetching assessment:", err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [packageId, subheadingId, getAuthHeaders, router, determineAssessmentType]);
+
+  useEffect(() => {
+    fetchAssessmentData();
+  }, [fetchAssessmentData]);
+
+  // Save answer to API
+  const saveAnswer = async (questionId, answer) => {
+    try {
+      setSaveStatus(prev => ({ ...prev, [questionId]: 'saving' }));
+
+      const headers = getAuthHeaders();
+      if (!headers) {
+        setSaveStatus(prev => ({ ...prev, [questionId]: 'error' }));
+        return false;
+      }
+
+      const response = await fetch(
+        "https://api.crazystory.in/api/patient/answers/save",
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ question_id: questionId, answer })
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok || result.status === "error") {
+        if (response.status === 401) {
+          localStorage.clear();
+          router.push("/patient/login");
+          return false;
+        }
+        console.error("Save failed:", result.message);
+        setSaveStatus(prev => ({ ...prev, [questionId]: 'error' }));
+        return false;
+      }
+
+      // Update progress from response
+      if (result.data?.progress) {
+        setProgress(result.data.progress);
+        setIsComplete(result.data.progress.is_complete);
+      }
+
+      // Immediately clear the save status after saving
+      setSaveStatus(prev => {
+        const updated = { ...prev };
+        delete updated[questionId];
+        return updated;
+      });
+
+      return true;
+    } catch (err) {
+      console.error("Error saving answer:", err);
+      setSaveStatus(prev => ({ ...prev, [questionId]: 'error' }));
+      return false;
+    }
+  };
+
+  // Debounced save for text input (SCT)
+  const handleTextAnswer = (questionId, answer) => {
+    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      saveAnswer(questionId, answer);
+    }, 1000);
+  };
+
+  // Immediate save for Yes/No (EPI) and MPQ
+  const handleAnswer = (questionId, answer) => {
+    setAnswers(prev => ({ ...prev, [questionId]: answer }));
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      saveAnswer(questionId, answer);
+    }, 300);
+  };
+
+  // Immediate save for Likert-style option selection
+  const handleLikertAnswer = (questionId, optionLabel, optionIndex) => {
+    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      saveAnswer(questionId, String(optionIndex));
+    }, 300);
+  };
+
+  // Find the next subheading in the package
+  const getNextSubheading = useCallback(() => {
+    if (!packageSubheadings || packageSubheadings.length === 0) return null;
+    const currentIdx = packageSubheadings.findIndex((s) => String(s.id) === String(subheadingId));
+    if (currentIdx === -1) return null;
+    return packageSubheadings[currentIdx + 1] || null;
+  }, [packageSubheadings, subheadingId]);
+
+  // Submit assessment - shows completion popup or thank you modal
+  const handleSubmit = async () => {
+    // Wait a moment for any pending saves to complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    // Check if there are any questions with 'saving' status
+    const savingQuestions = Object.keys(saveStatus).filter(
+      id => saveStatus[id] === 'saving'
+    );
+
+    // If there are saving questions, wait for them to complete
+    if (savingQuestions.length > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Check again after waiting
+      const stillSaving = Object.keys(saveStatus).filter(
+        id => saveStatus[id] === 'saving'
+      );
+      
+      if (stillSaving.length > 0) {
+        alert("Please wait for all answers to be saved before submitting.");
+        return;
+      }
+    }
+
+    // Check for error statuses
+    const errorQuestions = Object.keys(saveStatus).filter(
+      id => saveStatus[id] === 'error'
+    );
+
+    if (errorQuestions.length > 0) {
+      alert("Some answers failed to save. Please try again.");
+      return;
+    }
+
+    // Clear save statuses
+    setSaveStatus({});
+
+    setSubmitting(true);
+
+    // Always fetch the latest list to ensure we have the correct data
+    let list = packageSubheadings;
+    if (!subheadingsLoaded || list.length === 0) {
+      const fetched = await fetchPackageSubheadings();
+      if (fetched) list = fetched;
+    }
+
+    // If still no list, try one more time with a direct fetch
+    if (list.length === 0 && packageId) {
+      try {
+        const headers = getAuthHeaders();
+        if (headers) {
+          const res = await fetch(
+            `https://api.crazystory.in/api/patient/packages/${packageId}/subheadings`,
+            { headers }
+          );
+          const data = await res.json();
+          if (res.ok && data.status !== "error") {
+            list = data.data?.subheadings || [];
+            setPackageSubheadings(list);
+          }
+        }
+      } catch (err) {
+        console.error("Error fetching subheadings:", err);
+      }
+    }
+
+    // Find the current index in the list
+    const currentIdx = list.findIndex((s) => String(s.id) === String(subheadingId));
+    
+    // Get the next subheading
+    const next = currentIdx !== -1 && currentIdx < list.length - 1 ? list[currentIdx + 1] : null;
+    
+    // Calculate completed count - we've completed up to current index + 1
+    const completedCount = currentIdx !== -1 ? currentIdx + 1 : 1;
+    const totalCategories = list.length || 1;
+    
+    // Get the name of the completed category
+    const completedName = subheadingInfo?.name || list[currentIdx]?.name || "This section";
+
+    // If this is the last category, show Thank You modal directly
+    if (!next) {
+      setShowThankYou(true);
+      setSubmitting(false);
+      return;
+    }
+
+    // Show completion popup with next category
+    setCompletionInfo({
+      completedName,
+      completedIndex: completedCount,
+      totalCategories,
+      next,
+    });
+
+    setSubmitting(false);
+  };
+
+  // Called when the person taps "Continue to <next>" in the completion popup
+  const handleContinueToNext = () => {
+    const next = completionInfo?.next;
+    if (!next) return;
+
+    setPopupLoading(true);
+    localStorage.setItem("athma_current_assessment_subheading", String(next.id));
+    localStorage.setItem("athma_current_assessment_name", next.name || next.title || "");
+
+    setCompletionInfo(null);
+
+    router.push(`/patient/assessment?subheading_id=${next.id}&package_id=${packageId}`);
+  };
+
+  // Called when the person taps "View Results" in the completion popup
+  // This is now only used when there's a next category and they want to view results early
+  const handleViewResultsFromPopup = () => {
+    setPopupLoading(true);
+    setCompletionInfo(null);
+    router.push(`/patient/result?subheading_id=${subheadingId}&package_id=${packageId}`);
+  };
+
+  // Handle Thank You modal close
+  const handleThankYouClose = () => {
+    setShowThankYou(false);
+    router.push("/patient/category");
+  };
+
+  // Split questions into blocks of 20 for display
+  const questionBlocks = chunk(questions, 20);
+  const totalQuestions = questions.length;
+  const answeredCount = Object.keys(answers).filter(key => answers[key] !== undefined && answers[key] !== null && String(answers[key]).trim() !== "").length;
+  const progressPct = progress?.percentage ||
+    (totalQuestions > 0 ? Math.round((answeredCount / totalQuestions) * 100) : 0);
+
+  const nextSubheadingPreview = getNextSubheading();
+
+  // Theme accents per assessment type
+  const themeAccent = {
+    sct: { text: "text-purple-900", textLight: "text-purple-500", bg: "bg-purple-600", bgLight: "bg-purple-50", border: "border-purple-200", ring: "border-purple-200 bg-purple-50/30", chipBg: "bg-purple-100 text-purple-700" },
+    likert: { text: "text-sky-900", textLight: "text-sky-500", bg: "bg-sky-600", bgLight: "bg-sky-50", border: "border-sky-200", ring: "border-sky-200 bg-sky-50/30", chipBg: "bg-sky-100 text-sky-700" },
+    mpq: { text: "text-amber-900", textLight: "text-amber-600", bg: "bg-amber-600", bgLight: "bg-amber-50", border: "border-amber-200", ring: "border-amber-200 bg-amber-50/30", chipBg: "bg-amber-100 text-amber-700" },
+    epi: { text: "text-teal-900", textLight: "text-teal-500", bg: "bg-coral-600", bgLight: "bg-teal-50", border: "border-teal-200", ring: "border-teal-200 bg-teal-50/30", chipBg: "bg-teal-100 text-teal-700" },
+  }[assessmentType] || {};
+
+  // Scroll tracking for navigation
   useEffect(() => {
     const container = scrollContainerRef.current;
     if (!container) return;
@@ -197,181 +688,417 @@ export default function AssessmentPage({ packageId }) {
       },
       {
         root: container,
-        threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1],
+        threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5]
       }
     );
 
     categoryRefs.current.forEach((el) => el && observer.observe(el));
     return () => observer.disconnect();
-  }, []);
+  }, [questions]);
+
+  const scrollToCategory = (idx) => {
+    categoryRefs.current[idx]?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#F7F8F6]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading assessment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#F7F8F6]">
+        <div className="text-center max-w-md mx-auto px-4">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">Something went wrong</h2>
+          <p className="text-gray-600 mb-4">{error}</p>
+          <button
+            onClick={() => router.push("/patient/category")}
+            className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // No questions state
+  if (questions.length === 0) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[#F7F8F6]">
+        <div className="text-center max-w-md mx-auto px-4">
+          <p className="text-gray-600">No questions available for this assessment.</p>
+          <button
+            onClick={() => router.push("/patient/category")}
+            className="mt-4 px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition"
+          >
+            Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   let runningIndex = 0;
 
+  const typeLabel = {
+    sct: "Text Response",
+    likert: "Rating Scale",
+    mpq: "Yes/No",
+    epi: "Yes/No",
+  }[assessmentType];
+
+  const durationLabel = {
+    sct: "30-45 mins",
+    likert: "10-15 mins",
+    mpq: "25-30 mins",
+    epi: "20-25 mins",
+  }[assessmentType];
+
   return (
     <div className="h-screen flex flex-col bg-[#F7F8F6]">
+      {/* Header */}
       <div className="border-b border-line bg-white px-4 md:px-6 py-2.5 md:py-3 flex items-center justify-between">
-        <div className="flex-1"></div>
-        <Image 
-          src="/Athmalogo.webp" 
-          alt="Athma Mind Care Hospital" 
-          width={238} 
-          height={61} 
-          className="w-[100px] h-auto md:w-[238px] md:h-auto object-contain" 
-          priority 
+        <div className="flex-1">
+          <button
+            onClick={() => router.push("/patient/category")}
+            className="text-sm text-gray-500 hover:text-teal-600 transition-colors"
+          >
+            ← Back to Categories
+          </button>
+        </div>
+        <Image
+          src="/Athmalogo.webp"
+          alt="Athma Mind Care Hospital"
+          width={238}
+          height={61}
+          className="w-[100px] h-auto md:w-[238px] md:h-auto object-contain"
+          priority
         />
-        <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide flex-1 text-right">
-          Step 3 of 5 &middot; {pkg.name}
-        </p>
+        <div className="flex-1 text-right">
+          <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide">
+            {subheadingInfo?.name || "Assessment"}
+          </p>
+          <span className={`text-[9px] md:text-[10.5px] font-medium px-2 py-0.5 rounded-full ${themeAccent.chipBg}`}>
+            {typeLabel}
+          </span>
+        </div>
       </div>
 
+      {/* Progress bar */}
       <div className="h-1 bg-[#E9ECE9] w-full">
         <div
-          className="h-1 bg-coral-600 transition-all duration-300"
+          className={`h-1 transition-all duration-500 ${themeAccent.bg}`}
           style={{ width: `${progressPct}%` }}
         />
       </div>
 
       <div className="flex flex-1 overflow-hidden">
-        {/* Left — selected package, hidden on mobile */}
+        {/* Left sidebar - Assessment Info (desktop) */}
         <div className="hidden md:block w-[400px] shrink-0 border-r border-line bg-white overflow-y-auto p-6">
           <p className="text-[11px] font-semibold text-ink-soft uppercase tracking-wide mb-4">
-            Your package
+            Assessment Info
           </p>
 
-          <div className="relative rounded-2xl border border-orange-500 bg-white p-5">
-            <span className="absolute -top-3 left-4 bg-orange-500 text-white text-[11px] font-semibold px-3 py-1 rounded-full">
-              Selected
-            </span>
-
-            <div className="w-11 h-11 rounded-xl flex items-center justify-center bg-orange-50 text-orange-600 mb-3">
-              <PkgIcon size={22} strokeWidth={2} />
+          <div className={`rounded-2xl border p-5 ${themeAccent.ring}`}>
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-3 ${themeAccent.chipBg}`}>
+              {assessmentType === "sct" ? (
+                <Edit3 size={22} strokeWidth={2} />
+              ) : (
+                <FileQuestion size={22} strokeWidth={2} />
+              )}
             </div>
 
-            <h2 className="text-lg font-bold text-teal-900">{pkg.name}</h2>
+            <h2 className={`text-lg font-bold ${themeAccent.text}`}>
+              {subheadingInfo?.name || "Assessment"}
+            </h2>
 
-            <div className="mt-2 inline-flex items-center gap-1.5 w-fit bg-teal-50 text-teal-800 text-[12px] font-semibold px-3 py-1.5 rounded-full">
-              <User size={12} strokeWidth={2.5} />
-              {pkg.age}
-            </div>
+            {subheadingInfo?.description && (
+              <p className="text-sm text-gray-600 mt-2">
+                {subheadingInfo.description}
+              </p>
+            )}
 
-            <div className="mt-4 flex items-end gap-2 bg-gray-50 rounded-xl px-3.5 py-3">
-              <span className="text-[12px] text-gray-400 font-medium mb-1">₹</span>
-              <span className="text-[28px] leading-none font-extrabold text-gray-900 -ml-1">
-                {pkg.price}
-              </span>
-              <span className="text-gray-500 text-[11.5px] mb-1">/ Assessment</span>
+            <div className="mt-4 p-3 rounded-lg bg-white border border-gray-100">
+              <p className="text-[11.5px] text-gray-700 font-medium">
+                {assessmentType === "sct"
+                  ? "📝 Please complete the sentences with your thoughts and feelings. There are no right or wrong answers."
+                  : assessmentType === "likert"
+                  ? "📊 Please choose the option that best describes how you've been feeling recently."
+                  : assessmentType === "mpq"
+                  ? "✅ Please answer each statement with Yes or No based on how it applies to you."
+                  : "✅ Please answer each question with Yes or No based on your experience."
+                }
+              </p>
             </div>
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-[11.5px]">
-              <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-2">
-                <FileQuestion size={14} className="text-teal-600" />
-                <span className="font-semibold text-gray-700">{pkg.questions} Qs</span>
+              <div className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-2 border border-gray-100">
+                <FileQuestion size={14} className={themeAccent.textLight} />
+                <span className="font-semibold text-gray-700">{totalQuestions} Questions</span>
               </div>
-              <div className="flex items-center gap-1.5 bg-gray-50 rounded-lg px-2.5 py-2">
-                <Clock size={14} className="text-teal-600" />
-                <span className="font-semibold text-gray-700">{pkg.duration}</span>
+              <div className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-2 border border-gray-100">
+                <Clock size={14} className={themeAccent.textLight} />
+                <span className="font-semibold text-gray-700">{durationLabel}</span>
               </div>
             </div>
-
-            <hr className="my-4" />
-
-            <ul className="space-y-2.5">
-              {pkg.features.map((feature) => (
-                <li key={feature} className="flex items-start gap-2 text-[12.5px] text-gray-600">
-                  <span className="text-green-600 font-bold mt-[1px]">✓</span>
-                  <span>{feature}</span>
-                </li>
-              ))}
-            </ul>
           </div>
 
-          <div className="mt-6">
-            <div className="flex justify-between text-[12px] text-ink-soft mb-1.5">
+          {/* Progress stats */}
+          <div className="mt-6 space-y-3">
+            <div className="flex justify-between text-[12px] text-ink-soft">
               <span>Overall progress</span>
-              <span className="font-semibold text-teal-700">{progressPct}%</span>
+              <span className={`font-semibold ${themeAccent.text}`}>
+                {progressPct}%
+              </span>
             </div>
             <div className="h-1.5 rounded-full bg-[#EFF1EE] overflow-hidden">
               <div
-                className="h-full bg-teal-500 transition-all duration-300"
+                className={`h-full transition-all duration-500 ${themeAccent.bg}`}
                 style={{ width: `${progressPct}%` }}
               />
             </div>
+
+            <div className="flex justify-between text-[12px]">
+              <span className="text-gray-500">Answered</span>
+              <span className="font-semibold">{answeredCount} / {totalQuestions}</span>
+            </div>
+
+            {progress && (
+              <div className="flex justify-between text-[12px]">
+                <span className="text-gray-500">Remaining</span>
+                <span className="font-semibold text-coral-600">
+                  {progress.remaining || (totalQuestions - answeredCount)}
+                </span>
+              </div>
+            )}
           </div>
 
-          <div className="mt-21 flex flex-col items-center text-center">
+          {/* Next assessment preview */}
+          {nextSubheadingPreview && (
+            <div className={`mt-4 p-3 rounded-lg border ${themeAccent.ring}`}>
+              <p className="text-[10.5px] font-semibold text-teal-700 uppercase tracking-wide mb-1">
+                Up Next
+              </p>
+              <p className={`text-[12.5px] font-medium ${themeAccent.text}`}>
+                {nextSubheadingPreview.name || nextSubheadingPreview.title}
+              </p>
+            </div>
+          )}
+
+          {/* Auto-save indicator */}
+          <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-[11px] text-gray-500 flex items-center gap-1.5">
+              <CheckCircle2 size={12} className="text-green-500" />
+              {assessmentType === "sct"
+                ? "Answers are saved automatically as you type"
+                : "Answers are saved automatically"
+              }
+            </p>
+          </div>
+
+          {/* Mascot */}
+          <div className="mt-12 flex flex-col items-center text-center">
             <Image
               src="/unnamed.gif"
-              alt="Athma mascot — Let's talk"
+              alt="Athma mascot"
               width={200}
               height={280}
               unoptimized
               className="object-contain drop-shadow-[0_6px_14px_rgba(0,0,0,0.12)]"
             />
-            <p className="mt-2 text-[12.5px] font-semibold text-teal-800">
-              Take your time, we&apos;re here with you
+            <p className={`mt-2 text-[12.5px] font-semibold ${themeAccent.text}`}>
+              {assessmentType === "sct"
+                ? "Express yourself freely, there are no wrong answers"
+                : "Take your time, we're here with you"
+              }
             </p>
           </div>
         </div>
 
-        {/* Center — scrollable questions */}
+        {/* Center - Questions */}
         <div ref={scrollContainerRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 md:py-8">
           <div className="max-w-[640px] mx-auto">
-            {CATEGORIES.map((cat, catIdx) => (
+            {questionBlocks.map((block, blockIdx) => (
               <div
-                key={cat.id}
-                ref={(el) => (categoryRefs.current[catIdx] = el)}
-                data-index={catIdx}
+                key={`block-${blockIdx}`}
+                ref={(el) => (categoryRefs.current[blockIdx] = el)}
+                data-index={blockIdx}
                 className="mb-10 md:mb-14 scroll-mt-4 md:scroll-mt-6"
               >
-                <p className="text-[10px] md:text-[12.5px] font-semibold text-teal-500 uppercase tracking-wide mb-1 md:mb-1.5">
-                  Questions {cat.range}
+                {/* <p className={`text-[10px] md:text-[12.5px] font-semibold uppercase tracking-wide mb-1 md:mb-1.5 ${themeAccent.textLight}`}>
+                  Questions {blockIdx * 20 + 1} - {blockIdx * 20 + block.length}
                 </p>
-                <h2 className="font-brand text-lg md:text-xl font-semibold text-teal-900 mb-4 md:mb-6">
-                  Eysenck Personality Inventory
-                </h2>
+                <h2 className={`font-brand text-lg md:text-xl font-semibold mb-4 md:mb-6 ${themeAccent.text}`}>
+                  {subheadingInfo?.name || "Assessment"}
+                </h2> */}
 
                 <div className="space-y-5 md:space-y-6">
-                  {cat.questions.map((question, qIdxInBlock) => {
-                    const key = `${catIdx}-${qIdxInBlock}`;
-                    const selected = answers[key];
+                  {block.map((question) => {
+                    const selected = answers[question.id];
+                    const saveState = saveStatus[question.id];
+                    const hasAnswer = selected !== undefined && selected !== null && String(selected).trim() !== "";
                     runningIndex += 1;
+
                     return (
                       <div
-                        key={key}
-                        className="relative bg-white border border-line rounded-xl md:rounded-card pt-7 md:pt-8 pb-4 md:pb-5 px-4 md:px-5"
+                        key={question.id}
+                        className={`relative bg-white border rounded-xl md:rounded-card pt-7 md:pt-8 pb-4 md:pb-5 px-4 md:px-5 transition-all ${
+                          hasAnswer ? `${themeAccent.border} shadow-sm` : "border-line"
+                        }`}
                       >
-                        {/* Floating rounded question-number badge, top-center */}
+                        {/* Question number badge */}
                         <div
-                          className={`absolute -top-4 md:-top-4.5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-[12px] md:text-[13px] font-bold text-white shadow-[0_4px_10px_rgba(240,120,40,0.35)] ring-4 ring-[#F7F8F6] transition-transform ${
-                            selected
-                              ? "bg-[#32447b]"
-                              : "bg-gradient-to-br from-orange-400 to-orange-600"
+                          className={`absolute -top-4 md:-top-4.5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-9 md:h-9 rounded-full flex items-center justify-center text-[12px] md:text-[13px] font-bold text-white shadow-[0_4px_10px_rgba(240,120,40,0.35)] ring-4 ring-[#F7F8F6] transition-all ${
+                            hasAnswer
+                              ? `${themeAccent.bg} scale-105`
+                              : assessmentType === "sct"
+                                ? "bg-gradient-to-br from-purple-400 to-purple-600"
+                                : assessmentType === "likert"
+                                ? "bg-gradient-to-br from-sky-400 to-sky-600"
+                                : assessmentType === "mpq"
+                                ? "bg-gradient-to-br from-amber-400 to-amber-600"
+                                : "bg-gradient-to-br from-orange-400 to-orange-600"
                           }`}
                         >
                           {runningIndex}
                         </div>
 
-                        <p className="text-[12px] md:text-[14.5px] font-medium text-ink mb-1 md:mb-1.5 text-center">
-                          {question.en}
+                        {/* Question text - English */}
+                        <p className="text-[12px] md:text-[14.5px] font-medium text-ink mb-1 md:mb-1.5 text-center px-2">
+                          {question.question_text}
                         </p>
-                        <p className="text-[11px] md:text-[13px] text-ink-soft mb-3 md:mb-4 font-bold text-center">
-                          {question.ta}
-                        </p>
-                        <div className="flex flex-wrap justify-center gap-2">
-                          {OPTIONS.map((option) => (
-                            <button
-                              key={option.en}
-                              onClick={() => handleAnswer(catIdx, qIdxInBlock, option.en)}
-                              className={`px-4 md:px-5 py-1.5 md:py-2 rounded-full text-[11px] md:text-[13px] font-medium border transition-colors ${
-                                selected === option.en
-                                  ? "bg-coral-600 border-coral-600 text-white"
-                                  : "bg-[#FCFDFC] border-line text-ink hover:border-coral-300"
-                              }`}
-                            >
-                              {option.en} / {option.ta}
-                            </button>
-                          ))}
-                        </div>
+
+                        {/* Question text - Tamil (always show if available) */}
+                        {question.question_text_ta && question.question_text_ta.trim() !== "" && (
+                          <p className="text-[11px] md:text-[13px] text-ink-soft mb-3 md:mb-4 text-center px-2 font-bold leading-relaxed border-t border-gray-100 pt-2 mt-2">
+                            {question.question_text_ta}
+                          </p>
+                        )}
+
+                        {/* Conditional answer UI based on assessment type */}
+                        {assessmentType === "sct" ? (
+                          /* SCT - Text Input */
+                          <div className="px-2">
+                            <div className="relative">
+                              <textarea
+                                ref={(el) => (textareaRefs.current[question.id] = el)}
+                                value={selected || ""}
+                                onChange={(e) => handleTextAnswer(question.id, e.target.value)}
+                                placeholder="Type your response here..."
+                                rows={3}
+                                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:border-purple-400 focus:ring-2 focus:ring-purple-100 outline-none transition-all text-[12px] md:text-[13px] resize-none bg-gray-50 hover:bg-white focus:bg-white"
+                              />
+                              <div className="absolute bottom-2 right-3 flex items-center gap-2">
+                                {hasAnswer && (
+                                  <span className="text-[10px] text-gray-400">
+                                    {String(selected).length} characters
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {hasAnswer && (
+                              <div className="mt-2 flex items-center gap-2 text-[11px] text-gray-500">
+                                <Send size={12} className="text-purple-500" />
+                                <span>Your response will be saved automatically</span>
+                              </div>
+                            )}
+                          </div>
+) : assessmentType === "likert" ? (
+  /* PHQ / GHQ - 4-option rating scale with Tamil translations */
+  <div className="flex flex-col gap-2 px-2">
+    {(question.options || []).map((option, optIdx) => {
+      const isSelected = selected === optIdx;
+      const tamilText = getTamilTranslation(option);
+      
+      return (
+        <button
+          key={option}
+          onClick={() => handleLikertAnswer(question.id, option, optIdx)}
+          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[11.5px] md:text-[13px] font-medium border transition-all text-left ${
+            isSelected
+              ? "bg-sky-600 border-sky-600 text-white shadow-md"
+              : "bg-[#FCFDFC] border-line text-ink hover:border-sky-300 hover:bg-sky-50"
+          } ${saveState === 'saving' && isSelected ? "opacity-70" : ""}`}
+        >
+          <div className="flex items-center gap-3">
+            <span className="w-5 h-5 rounded-full border flex items-center justify-center text-[10px] shrink-0 border-gray-300 text-gray-400">
+              {optIdx + 1}
+            </span>
+            <div className="flex items-center gap-2">
+              <span>{option}</span>
+              {tamilText && (
+                <span className={`text-[10px] md:text-[11px] ${isSelected ? "text-sky-100" : "text-gray-500"} border-l ${isSelected ? "border-sky-300" : "border-gray-300"} pl-2`}>
+                  {tamilText}
+                </span>
+              )}
+            </div>
+          </div>
+          {isSelected && (
+            <CheckCircle2 size={16} className="text-white/80" />
+          )}
+        </button>
+      );
+    })}
+  </div>
+) :  (
+  /* EPI / MPQ - Yes/No Buttons with Tamil translations */
+  <div className="flex flex-wrap justify-center gap-3">
+    {(question.options || ["YES", "NO"]).map((option) => {
+      const tamilText = getTamilTranslation(option);
+      
+      return (
+        <button
+          key={option}
+          onClick={() => handleAnswer(question.id, option)}
+          className={`px-5 md:px-7 py-2 md:py-2.5 rounded-full text-[11px] md:text-[13px] font-bold border transition-all capitalize inline-flex items-center gap-2 ${
+            selected === option
+              ? `${themeAccent.bg} border-transparent text-white shadow-md scale-105`
+              : "bg-[#FCFDFC] border-line text-ink hover:border-coral-300 hover:bg-coral-50"
+          } ${saveState === 'saving' && selected === option ? "opacity-70" : ""}`}
+        >
+          <span>{option.toLowerCase() === "yes" ? "Yes" : option.toLowerCase() === "no" ? "No" : option}</span>
+          {tamilText && (
+            <span className={`text-[10px] md:text-[11px] ${selected === option ? "text-white/80" : "text-gray-500"} border-l ${selected === option ? "border-white/30" : "border-gray-300"} pl-2`}>
+              {tamilText}
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+)}
+
+                        {/* Save status indicator */}
+                        {saveState && (
+                          <div className="absolute top-2 right-3">
+                            {saveState === 'saving' && (
+                              <div className={`w-4 h-4 border-2 border-t-transparent rounded-full animate-spin ${themeAccent.border}`}></div>
+                            )}
+                            {saveState === 'saved' && (
+                              <CheckCircle2 size={16} className="text-green-500" />
+                            )}
+                            {saveState === 'error' && (
+                              <AlertCircle size={16} className="text-red-500" />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Previously answered indicator */}
+                        {question.answered && !saveState && hasAnswer && (
+                          <div className="absolute top-2 right-3">
+                            <CheckCircle2 size={16} className="text-green-400" />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -379,68 +1106,101 @@ export default function AssessmentPage({ packageId }) {
               </div>
             ))}
 
+            {/* Submit button */}
             <div className="pb-8 md:pb-10">
               <button
-                type="button"
-                disabled={answeredCount < totalQuestions}
-                className="w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13px] md:text-[14.5px] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={handleSubmit}
+                disabled={answeredCount < totalQuestions || submitting}
+                className={`w-full py-3 md:py-3.5 rounded-lg md:rounded-[10px] text-white font-semibold text-[13px] md:text-[14.5px] transition-all disabled:cursor-not-allowed shadow-md hover:shadow-lg disabled:bg-gray-300 ${themeAccent.bg}`}
               >
-                {answeredCount < totalQuestions
+                {submitting
+                  ? "Please wait..."
+                  : answeredCount < totalQuestions
                   ? `Answer all questions (${answeredCount}/${totalQuestions})`
-                  : "Submit assessment"}
+                  : "Submit Assessment"}
               </button>
             </div>
           </div>
         </div>
 
-        {/* Right — question-range sidebar, hidden on mobile */}
+        {/* Right sidebar - Block navigation (desktop) */}
         <div className="hidden md:block w-[400px] shrink-0 border-l border-line bg-white overflow-y-auto py-6 px-3">
-          {CATEGORIES.map((cat, idx) => {
-            const complete = isCategoryComplete(idx);
+          <p className="text-[11px] font-semibold text-ink-soft uppercase tracking-wide mb-4 px-3">
+            Question Blocks
+          </p>
+
+          {questionBlocks.map((block, idx) => {
+            const blockAnswered = block.filter(q => {
+              const val = answers[q.id];
+              return val !== undefined && val !== null && String(val).trim() !== "";
+            }).length;
+            const blockComplete = blockAnswered === block.length;
             const active = activeCategory === idx;
+
             return (
               <button
-                key={cat.id}
+                key={`nav-${idx}`}
                 ref={(el) => (sidebarRefs.current[idx] = el)}
                 onClick={() => scrollToCategory(idx)}
                 className={`w-full text-left px-3 py-3 rounded-[10px] mb-1.5 transition-colors flex items-center gap-3 ${
-                  active ? "bg-teal-50 border border-teal-200" : "hover:bg-[#F7F8F6] border border-transparent"
+                  active
+                    ? `${themeAccent.bgLight} border ${themeAccent.border}`
+                    : "hover:bg-[#F7F8F6] border border-transparent"
                 }`}
               >
                 <div
-                  className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[12px] font-semibold ${
-                    complete
-                      ? "bg-teal-500 text-white"
+                  className={`w-7 h-7 shrink-0 rounded-full flex items-center justify-center text-[12px] font-semibold transition-colors ${
+                    blockComplete
+                      ? `${themeAccent.bg} text-white`
                       : active
-                      ? "bg-teal-100 text-teal-700"
+                      ? `${themeAccent.bgLight} ${themeAccent.text}`
                       : "bg-[#EFF1EE] text-ink-soft"
                   }`}
                 >
-                  {complete ? (
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
-                      <path
-                        d="M5 13l4 4L19 7"
-                        stroke="white"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                  {blockComplete ? (
+                    <CheckCircle2 size={14} />
                   ) : (
                     idx + 1
                   )}
                 </div>
-                <div className="min-w-0">
-                  <p className={`text-[13.5px] font-medium truncate ${active ? "text-teal-900" : "text-ink"}`}>
-                    Questions {cat.range}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-[13.5px] font-medium truncate ${active ? themeAccent.text : "text-ink"}`}>
+                    Q {idx * 20 + 1} - {idx * 20 + block.length}
                   </p>
-                  <p className="text-[11.5px] text-ink-soft">{cat.questions.length} questions</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11.5px] text-ink-soft">{block.length} questions</p>
+                    <span className={`text-[10px] font-medium ${blockComplete ? themeAccent.textLight : "text-gray-400"}`}>
+                      {blockAnswered}/{block.length}
+                    </span>
+                  </div>
                 </div>
+                <ChevronRight
+                  size={14}
+                  className={`text-ink-soft transition-transform ${active ? "rotate-90" : ""}`}
+                />
               </button>
             );
           })}
         </div>
       </div>
+
+      {/* Completion popup — shown when there's a next category */}
+      {completionInfo && (
+        <CategoryCompleteModal
+          completedName={completionInfo.completedName}
+          completedIndex={completionInfo.completedIndex}
+          totalCategories={completionInfo.totalCategories}
+          nextName={completionInfo.next?.name || completionInfo.next?.title || null}
+          onContinue={handleContinueToNext}
+          onViewResults={handleViewResultsFromPopup}
+          loading={popupLoading}
+        />
+      )}
+
+      {/* Thank You Modal — shown after all categories are completed */}
+      {showThankYou && (
+        <ThankYouModal onClose={handleThankYouClose} />
+      )}
     </div>
   );
 }
