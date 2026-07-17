@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Sparkles,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 
 const PASSWORD_CHECKS = [
@@ -25,15 +26,66 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({});
   const [form, setForm] = useState({ name: "", email: "", phone: "", password: "", confirm: "" });
 
-  const handleChange = (key, val) => setForm((f) => ({ ...f, [key]: val }));
+  const handleChange = (key, val) => {
+    setForm((f) => ({ ...f, [key]: val }));
+    // Clear error for the field being edited
+    if (errors[key]) {
+      setErrors((prev) => ({ ...prev, [key]: "" }));
+    }
+  };
 
   const passwordsMatch = form.confirm.length > 0 && form.password === form.confirm;
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!form.name.trim()) {
+      newErrors.name = "Full name is required";
+    }
+    
+    if (!form.email.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!/\S+@\S+\.\S+/.test(form.email)) {
+      newErrors.email = "Please enter a valid email";
+    }
+    
+    if (!form.phone.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!/^\d{10}$/.test(form.phone.replace(/\s/g, ''))) {
+      newErrors.phone = "Please enter a valid 10-digit number";
+    }
+    
+    if (!form.password) {
+      newErrors.password = "Password is required";
+    } else {
+      const allChecksPassed = PASSWORD_CHECKS.every(check => check.test(form.password));
+      if (!allChecksPassed) {
+        newErrors.password = "Password doesn't meet all requirements";
+      }
+    }
+    
+    if (!form.confirm) {
+      newErrors.confirm = "Please confirm your password";
+    } else if (form.password !== form.confirm) {
+      newErrors.confirm = "Passwords don't match";
+    }
+    
+    if (!agreed) {
+      newErrors.agreed = "You must agree to the terms";
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!agreed) return;
+    
+    if (!validateForm()) return;
+    
     setSubmitting(true);
     // TODO: replace with real registration call
     setTimeout(() => setSubmitting(false), 1200);
@@ -76,8 +128,8 @@ export default function RegisterPage() {
           }
         `}</style>
 
-             <div className="relative z-10 flex flex-col justify-center w-full px-12 py-12">
-              <div className="max-w-[380px]">
+        <div className="relative z-10 flex flex-col justify-center w-full px-12 py-12">
+          <div className="max-w-[380px]">
             <span className="inline-flex items-center gap-1.5 text-[11.5px] font-semibold uppercase tracking-wider text-white mb-4">
               <Sparkles size={13} /> Join the Portal
             </span>
@@ -132,13 +184,22 @@ export default function RegisterPage() {
                 <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft" />
                 <input
                   type="text"
-                  required
                   value={form.name}
                   onChange={(e) => handleChange("name", e.target.value)}
                   placeholder="Priya Sharma"
-                  className="w-full pl-10 pr-4 py-3 border border-line rounded-[10px] text-[14px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 transition-colors"
+                  className={`w-full pl-10 pr-4 py-3 border rounded-[10px] text-[14px] bg-[#FCFDFC] focus:outline-2 transition-colors ${
+                    errors.name 
+                      ? "border-rose-400 focus:outline-rose-400" 
+                      : "border-line focus:outline-teal-500 focus:border-teal-500"
+                  }`}
                 />
               </div>
+              {errors.name && (
+                <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                  <AlertCircle size={12} />
+                  {errors.name}
+                </p>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -148,13 +209,22 @@ export default function RegisterPage() {
                   <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft" />
                   <input
                     type="email"
-                    required
                     value={form.email}
                     onChange={(e) => handleChange("email", e.target.value)}
                     placeholder="you@example.com"
-                    className="w-full pl-10 pr-3 py-3 border border-line rounded-[10px] text-[13.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 transition-colors"
+                    className={`w-full pl-10 pr-3 py-3 border rounded-[10px] text-[13.5px] bg-[#FCFDFC] focus:outline-2 transition-colors ${
+                      errors.email 
+                        ? "border-rose-400 focus:outline-rose-400" 
+                        : "border-line focus:outline-teal-500 focus:border-teal-500"
+                    }`}
                   />
                 </div>
+                {errors.email && (
+                  <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                    <AlertCircle size={12} />
+                    {errors.email}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-[12.5px] font-medium text-ink mb-1.5">Phone</label>
@@ -162,13 +232,22 @@ export default function RegisterPage() {
                   <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft" />
                   <input
                     type="tel"
-                    required
                     value={form.phone}
                     onChange={(e) => handleChange("phone", e.target.value)}
                     placeholder="98765 43210"
-                    className="w-full pl-10 pr-3 py-3 border border-line rounded-[10px] text-[13.5px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 transition-colors"
+                    className={`w-full pl-10 pr-3 py-3 border rounded-[10px] text-[13.5px] bg-[#FCFDFC] focus:outline-2 transition-colors ${
+                      errors.phone 
+                        ? "border-rose-400 focus:outline-rose-400" 
+                        : "border-line focus:outline-teal-500 focus:border-teal-500"
+                    }`}
                   />
                 </div>
+                {errors.phone && (
+                  <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                    <AlertCircle size={12} />
+                    {errors.phone}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -178,11 +257,14 @@ export default function RegisterPage() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  required
                   value={form.password}
                   onChange={(e) => handleChange("password", e.target.value)}
                   placeholder="••••••••"
-                  className="w-full pl-10 pr-11 py-3 border border-line rounded-[10px] text-[14px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 transition-colors"
+                  className={`w-full pl-10 pr-11 py-3 border rounded-[10px] text-[14px] bg-[#FCFDFC] focus:outline-2 transition-colors ${
+                    errors.password 
+                      ? "border-rose-400 focus:outline-rose-400" 
+                      : "border-line focus:outline-teal-500 focus:border-teal-500"
+                  }`}
                 />
                 <button
                   type="button"
@@ -192,7 +274,13 @@ export default function RegisterPage() {
                   {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              {form.password.length > 0 && (
+              {errors.password && (
+                <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                  <AlertCircle size={12} />
+                  {errors.password}
+                </p>
+              )}
+              {form.password.length > 0 && !errors.password && (
                 <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
                   {PASSWORD_CHECKS.map((check) => {
                     const passed = check.test(form.password);
@@ -218,19 +306,27 @@ export default function RegisterPage() {
                 <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-soft" />
                 <input
                   type={showPassword ? "text" : "password"}
-                  required
                   value={form.confirm}
                   onChange={(e) => handleChange("confirm", e.target.value)}
                   placeholder="••••••••"
                   className={`w-full pl-10 pr-4 py-3 border rounded-[10px] text-[14px] bg-[#FCFDFC] focus:outline-2 transition-colors ${
-                    form.confirm.length > 0 && !passwordsMatch
+                    errors.confirm || (form.confirm.length > 0 && !passwordsMatch)
                       ? "border-rose-400 focus:outline-rose-400"
                       : "border-line focus:outline-teal-500 focus:border-teal-500"
                   }`}
                 />
               </div>
-              {form.confirm.length > 0 && !passwordsMatch && (
-                <p className="text-[11.5px] text-rose-500 mt-1.5">Passwords don&apos;t match yet.</p>
+              {errors.confirm && (
+                <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                  <AlertCircle size={12} />
+                  {errors.confirm}
+                </p>
+              )}
+              {!errors.confirm && form.confirm.length > 0 && !passwordsMatch && (
+                <p className="flex items-center gap-1 text-[11.5px] text-rose-500 mt-1.5">
+                  <AlertCircle size={12} />
+                  Passwords don&apos;t match yet.
+                </p>
               )}
             </div>
 
@@ -238,18 +334,27 @@ export default function RegisterPage() {
               <input
                 type="checkbox"
                 checked={agreed}
-                onChange={(e) => setAgreed(e.target.checked)}
-                className="w-4 h-4 rounded accent-coral-600 mt-0.5"
+                onChange={(e) => {
+                  setAgreed(e.target.checked);
+                  if (errors.agreed) setErrors((prev) => ({ ...prev, agreed: "" }));
+                }}
+                className={`w-4 h-4 rounded mt-0.5 ${errors.agreed ? 'accent-rose-600' : 'accent-coral-600'}`}
               />
               <span className="text-[12.5px] text-ink-soft leading-relaxed">
                 I agree to the <a href="#" className="font-semibold text-teal-800">Terms of Service</a> and{" "}
                 <a href="#" className="font-semibold text-teal-800">Privacy Policy</a>.
               </span>
             </label>
+            {errors.agreed && (
+              <p className="flex items-center gap-1 text-[11.5px] text-rose-500 -mt-2 ml-7">
+                <AlertCircle size={12} />
+                {errors.agreed}
+              </p>
+            )}
 
             <button
               type="submit"
-              disabled={submitting || !agreed}
+              disabled={submitting}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-50"
             >
               {submitting ? (

@@ -579,7 +579,7 @@ export default function PackagesPage({ patientId: patientIdProp }) {
 
             <div className="px-5 md:px-6 py-4 space-y-3 text-xs md:text-sm text-gray-600 leading-relaxed">
               <p>
-                I understand that the psychological test I undergo will be
+                I agree that the psychological test I undergo will be
                 valid only if I answer the questions true to my conscience,
                 consciousness, and self-awareness. Failing which, the report
                 can change, for which I will hold responsibility, not Athma

@@ -173,7 +173,7 @@ export default function RegisterPage() {
           {/* Row 3: Email (Full Width) */}
           <div className="mb-3 md:mb-4.5">
             <label className="block text-[11px] md:text-[13px] font-medium mb-1 md:mb-1.5">
-              Email <span className="text-ink-soft font-normal">(optional)</span>
+              Email 
             </label>
             <input
               type="email"

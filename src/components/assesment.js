@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   RefreshCw,
@@ -47,15 +48,51 @@ const getAuthHeaders = () => {
 
 // ---- Assessment Type Configurations ----
 const MPQ_SCALE_CONFIG = {
-  K: { name: "Defensiveness", totalQuestions: 12, description: "Measures test-taking attitude and defensiveness" },
-  Sc: { name: "Schizophrenia", totalQuestions: 18, description: "Measures unusual thinking and detachment from reality" },
-  Pa: { name: "Paranoia", totalQuestions: 18, description: "Measures suspiciousness and paranoid thoughts" },
-  Ma: { name: "Hypomania", totalQuestions: 17, description: "Measures energy, activity level, and impulsivity" },
-  D: { name: "Depression", totalQuestions: 15, description: "Measures depressive symptoms" },
-  A: { name: "Anxiety", totalQuestions: 26, description: "Measures anxiety symptoms" },
-  Hy: { name: "Hysteria", totalQuestions: 8, description: "Measures somatic complaints and conversion symptoms" },
-  Pd: { name: "Psychopathic Deviate", totalQuestions: 34, description: "Measures antisocial tendencies and rule-breaking" },
-  "Repressor-Sensitiser": { name: "Repressor-Sensitiser", totalQuestions: 41, description: "Measures coping style (repressor vs sensitiser)" },
+  K: {
+    name: "Defensiveness",
+    totalQuestions: 12,
+    description: "Measures test-taking attitude and defensiveness",
+  },
+  SC: {
+    name: "Schizophrenia",
+    totalQuestions: 18,
+    description: "Measures unusual thinking and detachment from reality",
+  },
+  PA: {
+    name: "Paranoia",
+    totalQuestions: 18,
+    description: "Measures suspiciousness and paranoid thoughts",
+  },
+  MA: {
+    name: "Hypomania",
+    totalQuestions: 17,
+    description: "Measures energy, activity level, and impulsivity",
+  },
+  D: {
+    name: "Depression",
+    totalQuestions: 15,
+    description: "Measures depressive symptoms",
+  },
+  A: {
+    name: "Anxiety",
+    totalQuestions: 26,
+    description: "Measures anxiety symptoms",
+  },
+  HY: {
+    name: "Hysteria",
+    totalQuestions: 8,
+    description: "Measures somatic complaints and conversion symptoms",
+  },
+  PD: {
+    name: "Psychopathic Deviate",
+    totalQuestions: 34,
+    description: "Measures antisocial tendencies and rule-breaking",
+  },
+  REPRESSOR_SENSITISER: {
+    name: "Repressor-Sensitiser",
+    totalQuestions: 41,
+    description: "Measures coping style (repressor vs sensitiser)",
+  },
 };
 
 const PHQ9_SEVERITY_CONFIG = {
@@ -155,11 +192,25 @@ function detectAssessmentType(name) {
   };
 }
 
-export default function AdminAssessments() {
-  const [view, setView] = useState("list");
-  const [selectedUserId, setSelectedUserId] = useState(null);
-  const [selectedPackageId, setSelectedPackageId] = useState(null);
-  const [selectedSubheading, setSelectedSubheading] = useState(null);
+function AdminAssessmentsInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // ---- URL-driven navigation state (survives refresh) ----
+  const view = searchParams.get("aview") || "list";
+  const selectedUserId = searchParams.get("auserId") ? Number(searchParams.get("auserId")) : null;
+  const selectedSubheadingId = searchParams.get("asubId") ? Number(searchParams.get("asubId")) : null;
+  const selectedPackageId = searchParams.get("apkgId") ? Number(searchParams.get("apkgId")) : null;
+
+  const updateUrl = useCallback((params) => {
+    const sp = new URLSearchParams(searchParams.toString());
+    Object.entries(params).forEach(([k, v]) => {
+      if (v === null || v === undefined) sp.delete(k);
+      else sp.set(k, String(v));
+    });
+    router.push(`?${sp.toString()}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const [patients, setPatients] = useState([]);
   const [totalPaid, setTotalPaid] = useState(0);
@@ -407,6 +458,24 @@ export default function AdminAssessments() {
     }
   }, []);
 
+  // Silent refresh — updates sctReport without flipping the loading state,
+  // so the report card badge/scale scores update instantly after a toggle.
+  const refreshSctReportSilently = useCallback(async (userId) => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/sct-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) return;
+      const result = await response.json();
+      if (result.status === "success") {
+        setSctReport(result.data);
+      }
+    } catch (err) {
+      console.error("Error refreshing SCT report:", err);
+    }
+  }, []);
+
   const fetchGhq28Report = useCallback(async (userId) => {
     setGhq28Loading(true);
     setGhq28Error(null);
@@ -439,7 +508,7 @@ export default function AdminAssessments() {
       return next;
     });
 
-    // Optimistically update the local state
+    // Optimistically update the checklist state
     setSctQuestionsAnswers(prev => {
       if (!prev) return prev;
       return {
@@ -454,17 +523,42 @@ export default function AdminAssessments() {
       };
     });
 
+    // Optimistically update the report card's answers array + negative/positive/scored counts
+    setSctReport(prev => {
+      if (!prev?.sct_report) return prev;
+      const wasNull = prev.sct_report.answers?.find(a => a.answer_id === answerId)?.score_value === null;
+      const newScoreValue = wasNull ? 1 : null;
+      const updatedAnswers = (prev.sct_report.answers || []).map(a =>
+        a.answer_id === answerId ? { ...a, score_value: newScoreValue } : a
+      );
+      const delta = wasNull ? 1 : -1;
+      return {
+        ...prev,
+        sct_report: {
+          ...prev.sct_report,
+          answers: updatedAnswers,
+          negative: Math.max(0, (prev.sct_report.negative || 0) + delta),
+          positive: Math.max(0, (prev.sct_report.positive || 0) - delta),
+        },
+      };
+    });
+
     try {
       const response = await fetch(`${API_BASE_URL}/assessments/sct/update-answer/${answerId}`, {
         method: "PUT",
         headers: getAuthHeaders(),
       });
       if (!response.ok) throw new Error("Failed to update answer");
-      // Don't need to refresh - optimistic update is sufficient
+
+      // Reconcile with the server's actual computed scale scores / totals
+      if (selectedUserId) {
+        refreshSctReportSilently(selectedUserId);
+      }
     } catch (err) {
       console.error("Error updating SCT answer:", err);
-      // Revert optimistic update on error
+      // Revert optimistic updates on error
       await fetchSctQuestionsAnswers(selectedUserId);
+      await refreshSctReportSilently(selectedUserId);
     } finally {
       setUpdatingAnswerIds(prev => {
         const next = new Set(prev);
@@ -478,29 +572,34 @@ export default function AdminAssessments() {
     fetchPatientList();
   }, [fetchPatientList]);
 
-  // ---- Navigation Functions ----
-  const openPatient = (userId) => {
-    setSelectedUserId(userId);
-    setView("patient");
-    fetchPatientDetail(userId);
-  };
+  // ---- Re-fetch on view/URL changes (covers refresh, back/forward, direct link) ----
+  useEffect(() => {
+    if (view === "patient" && selectedUserId) {
+      fetchPatientDetail(selectedUserId);
+    }
 
-  const openSubheading = (subheadingId, packageId, isEpi, assessmentTypes) => {
-    setSelectedSubheading({ id: subheadingId, packageId });
-    setSelectedPackageId(packageId);
-    setView("subheading");
-    fetchSubheadingDetail(subheadingId, selectedUserId);
+    if (view === "subheading" && selectedUserId && selectedSubheadingId) {
+      fetchSubheadingDetail(selectedSubheadingId, selectedUserId);
 
-    // Reset all reports
-    setEpiReport(null); setEpiError(null); setFullReport(null);
-    setMpqReport(null); setMpqError(null);
-    setPhq9Report(null); setPhq9Error(null);
-    setSctReport(null); setSctError(null);
-    setGhq28Report(null); setGhq28Error(null);
-    setSctQuestionsAnswers(null);
-    setUpdatingAnswerIds(new Set());
+      // Reset all reports before refetching
+      setEpiReport(null); setEpiError(null); setFullReport(null);
+      setMpqReport(null); setMpqError(null);
+      setPhq9Report(null); setPhq9Error(null);
+      setSctReport(null); setSctError(null);
+      setGhq28Report(null); setGhq28Error(null);
+      setSctQuestionsAnswers(null);
+      setUpdatingAnswerIds(new Set());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, selectedUserId, selectedSubheadingId]);
 
-    if (isEpi) {
+  // Once subheadingData loads (in "subheading" view), fetch the correct report type
+  useEffect(() => {
+    if (view !== "subheading" || !subheadingData || !selectedUserId) return;
+    const { subheading, is_epi } = subheadingData;
+    const assessmentTypes = detectAssessmentType(subheading?.name);
+
+    if (is_epi) {
       fetchEpiReport(selectedUserId);
     } else if (assessmentTypes.isMpq) {
       fetchMpqReport(selectedUserId);
@@ -512,11 +611,20 @@ export default function AdminAssessments() {
     } else if (assessmentTypes.isGhq28) {
       fetchGhq28Report(selectedUserId);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, subheadingData, selectedUserId]);
+
+  // ---- Navigation Functions ----
+  const openPatient = (userId) => {
+    updateUrl({ aview: "patient", auserId: userId, asubId: null, apkgId: null });
+  };
+
+  const openSubheading = (subheadingId, packageId /*, isEpi, assessmentTypes */) => {
+    updateUrl({ aview: "subheading", asubId: subheadingId, apkgId: packageId });
   };
 
   const backToList = () => {
-    setView("list");
-    setSelectedUserId(null);
+    updateUrl({ aview: "list", auserId: null, asubId: null, apkgId: null });
     setPatientData(null);
     setEpiReport(null); setFullReport(null);
     setMpqReport(null); setPhq9Report(null);
@@ -526,8 +634,7 @@ export default function AdminAssessments() {
   };
 
   const backToPatient = () => {
-    setView("patient");
-    setSelectedSubheading(null);
+    updateUrl({ aview: "patient", asubId: null, apkgId: null });
     setSubheadingData(null);
     setEpiReport(null); setFullReport(null);
     setMpqReport(null); setPhq9Report(null);
@@ -574,21 +681,21 @@ export default function AdminAssessments() {
     <div className="min-h-screen bg-[#F6F7FA]">
       {/* Header */}
       <div className="sticky top-0 z-10 bg-white/80 backdrop-blur-md border-b border-slate-200/70">
-        <div className=" mx-auto px-6 py-5">
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+        <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 md:px-5 lg:px-6 py-3 sm:py-4 md:py-5">
+          <div className="flex items-center justify-between gap-2 sm:gap-3 md:gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
               {view !== "list" && (
                 <button
                   onClick={view === "subheading" ? backToPatient : backToList}
-                  className="p-2 rounded-lg border border-slate-200 hover:border-[#2F4479]/30 hover:bg-[#2F4479]/5 transition-colors shrink-0"
+                  className="p-1.5 sm:p-2 rounded-lg border border-slate-200 hover:border-[#2F4479]/30 hover:bg-[#2F4479]/5 transition-colors shrink-0"
                 >
-                  <ArrowLeft size={16} className="text-slate-600" />
+                  <ArrowLeft size={14} className="sm:w-4 sm:h-4 text-slate-600" />
                 </button>
               )}
-              <div className="w-9 h-9 rounded-lg bg-[#2F4479] flex items-center justify-center shrink-0">
-                <ListChecks size={18} className="text-white" strokeWidth={2.25} />
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg bg-[#2F4479] flex items-center justify-center shrink-0">
+                <ListChecks size={14} className="sm:w-[15px] sm:h-[15px] md:w-[18px] md:h-[18px] text-white" strokeWidth={2.25} />
               </div>
-              <div>
+              <div className="min-w-0">
                 <Breadcrumb
                   view={view}
                   patientName={patientData?.user?.name}
@@ -596,11 +703,11 @@ export default function AdminAssessments() {
                   onList={backToList}
                   onPatient={backToPatient}
                 />
-                <p className="text-slate-500 text-[13px] mt-0.5">
+                <p className="text-slate-500 text-[10px] sm:text-[11px] md:text-[12px] lg:text-[13px] mt-0.5 line-clamp-1">
                   {view === "list" && (
                     <>
                       Track patient progress across assessments
-                      {totalPaid > 0 && <span className="text-slate-400"> · {totalPaid} paid patients</span>}
+                      {totalPaid > 0 && <span className="text-slate-400 hidden sm:inline"> · {totalPaid} paid patients</span>}
                     </>
                   )}
                   {view === "patient" && "Package completion by section"}
@@ -610,13 +717,14 @@ export default function AdminAssessments() {
             </div>
             {view === "list" && (
               <button
+                type="button"
                 onClick={fetchPatientList}
-                className="p-2.5 rounded-xl border border-slate-200 hover:border-[#2F4479]/30 hover:bg-[#2F4479]/5 transition-colors group"
+                className="p-2 sm:p-2.5 rounded-xl border border-slate-200 hover:border-[#2F4479]/30 hover:bg-[#2F4479]/5 transition-colors group shrink-0"
                 title="Refresh"
               >
                 <RefreshCw
-                  size={17}
-                  className={`text-slate-500 group-hover:text-[#2F4479] transition-colors ${
+                  size={15}
+                  className={`sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-slate-500 group-hover:text-[#2F4479] transition-colors ${
                     listLoading ? "animate-spin" : ""
                   }`}
                 />
@@ -627,7 +735,7 @@ export default function AdminAssessments() {
       </div>
 
       {/* Content */}
-      <div className=" mx-auto px-6 py-8">
+      <div className="w-full max-w-[1600px] mx-auto px-3 sm:px-4 md:px-5 lg:px-6 py-4 sm:py-6 md:py-8">
         {view === "list" && (
           <PatientListView
             loading={listLoading}
@@ -658,7 +766,7 @@ export default function AdminAssessments() {
             loading={subLoading}
             error={subError}
             data={subheadingData}
-            onRetry={() => fetchSubheadingDetail(selectedSubheading.id, selectedUserId)}
+            onRetry={() => fetchSubheadingDetail(selectedSubheadingId, selectedUserId)}
             formatDate={formatDate}
             epiReport={epiReport}
             fullReport={fullReport}
@@ -693,24 +801,32 @@ export default function AdminAssessments() {
   );
 }
 
+export default function AdminAssessments() {
+  return (
+    <Suspense fallback={<LoadingState label="Loading assessments..." />}>
+      <AdminAssessmentsInner />
+    </Suspense>
+  );
+}
+
 // ============================================================================
 // Breadcrumb Component
 // ============================================================================
 function Breadcrumb({ view, patientName, subheadingName, onList, onPatient }) {
   return (
-    <div className="flex items-center gap-1.5 text-[15px] font-semibold text-[#1E2A47] tracking-tight">
+    <div className="flex items-center gap-1 sm:gap-1.5 text-[12px] sm:text-[13px] md:text-[14px] lg:text-[15px] font-semibold text-[#1E2A47] tracking-tight flex-wrap">
       <button
         onClick={onList}
-        className={view === "list" ? "text-[#1E2A47]" : "text-slate-400 hover:text-[#2F4479] transition-colors"}
+        className={view === "list" ? "text-[#1E2A47]" : "text-slate-400 hover:text-[#2F4479] transition-colors truncate max-w-[150px] sm:max-w-[200px] md:max-w-none"}
       >
         Assessments
       </button>
       {view !== "list" && (
         <>
-          <ChevronRight size={14} className="text-slate-300" />
+          <ChevronRight size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] text-slate-300 shrink-0" />
           <button
             onClick={onPatient}
-            className={view === "patient" ? "text-[#1E2A47]" : "text-slate-400 hover:text-[#2F4479] transition-colors"}
+            className={view === "patient" ? "text-[#1E2A47]" : "text-slate-400 hover:text-[#2F4479] transition-colors truncate max-w-[120px] sm:max-w-[150px] md:max-w-none"}
           >
             {patientName || "Patient"}
           </button>
@@ -718,8 +834,8 @@ function Breadcrumb({ view, patientName, subheadingName, onList, onPatient }) {
       )}
       {view === "subheading" && (
         <>
-          <ChevronRight size={14} className="text-slate-300" />
-          <span className="text-[#1E2A47]">{subheadingName || "Section"}</span>
+          <ChevronRight size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] text-slate-300 shrink-0" />
+          <span className="text-[#1E2A47] truncate max-w-[120px] sm:max-w-[150px] md:max-w-none">{subheadingName || "Section"}</span>
         </>
       )}
     </div>
@@ -732,69 +848,69 @@ function Breadcrumb({ view, patientName, subheadingName, onList, onPatient }) {
 function PatientListView({ loading, error, patients, searchTerm, setSearchTerm, onOpen, onRetry, formatDate }) {
   return (
     <>
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 mb-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-3 sm:p-4 mb-4 sm:mb-6">
         <div className="relative">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={17} />
+          <Search className="absolute left-3 sm:left-3.5 top-1/2 -translate-y-1/2 text-slate-400 w-[15px] h-[15px] sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px]" />
           <input
             type="text"
             placeholder="Search by name, email, or phone..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-[#2F4479] focus:ring-2 focus:ring-[#2F4479]/10 outline-none transition-all text-[13.5px] placeholder:text-slate-400"
+            className="w-full pl-9 sm:pl-10 pr-3 sm:pr-4 py-2 sm:py-2.5 rounded-lg sm:rounded-xl border border-slate-200 focus:border-[#2F4479] focus:ring-2 focus:ring-[#2F4479]/10 outline-none transition-all text-[12px] sm:text-[13px] md:text-[13.5px] placeholder:text-slate-400"
           />
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
         {loading ? (
           <LoadingState label="Loading patients..." />
         ) : error ? (
           <ErrorState message={error} onRetry={onRetry} />
         ) : patients.length === 0 ? (
-          <EmptyState icon={<Users size={28} className="text-slate-400" />} title="No patients found" subtitle="Try adjusting your search" />
+          <EmptyState icon={<Users size={22} className="sm:w-[26px] sm:h-[26px] md:w-[28px] md:h-[28px] text-slate-400" />} title="No patients found" subtitle="Try adjusting your search" />
         ) : (
           <div className="divide-y divide-slate-50">
             {patients.map((p) => (
               <button
                 key={p.user_id}
                 onClick={() => onOpen(p.user_id)}
-                className="w-full flex items-center gap-4 px-6 py-4 hover:bg-[#2F4479]/[0.03] transition-colors text-left"
+                className="w-full flex items-center gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-6 py-3 sm:py-4 hover:bg-[#2F4479]/[0.03] transition-colors text-left"
               >
-                <div className="w-10 h-10 rounded-full bg-[#2F4479] flex items-center justify-center shrink-0">
-                  <User size={17} className="text-white" />
+                <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-full bg-[#2F4479] flex items-center justify-center shrink-0">
+                  <User size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-white" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-[14px] font-medium text-slate-800 truncate">{p.name}</p>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <p className="text-[12px] sm:text-[13px] md:text-[14px] font-medium text-slate-800 truncate">{p.name}</p>
                     {!p.has_progress && (
-                      <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
+                      <span className="text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">
                         Not started
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <span className="flex items-center gap-1 text-[12px] text-slate-500 truncate">
-                      <Mail size={11} className="shrink-0" /> {p.email}
+                  <div className="flex flex-col xs:flex-row xs:items-center gap-1 xs:gap-2 sm:gap-3 mt-0.5">
+                    <span className="flex items-center gap-1 text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 truncate">
+                      <Mail size={10} className="sm:w-[11px] sm:h-[11px] shrink-0" /> {p.email}
                     </span>
-                    <span className="flex items-center gap-1 text-[12px] text-slate-500 shrink-0">
-                      <Phone size={11} /> {p.phone}
+                    <span className="hidden xs:flex items-center gap-1 text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 shrink-0">
+                      <Phone size={10} className="sm:w-[11px] sm:h-[11px]" /> {p.phone}
                     </span>
                   </div>
                 </div>
-                <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <div className="hidden md:flex items-center gap-2 shrink-0">
                   {(p.packages || []).map((pkg) => (
-                    <span key={pkg.package_id} className="inline-flex items-center gap-1.5 text-[12px] font-medium px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600">
-                      <Package size={11} className="text-[#2F4479]" /> {pkg.package_name}
+                    <span key={pkg.package_id} className="inline-flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] md:text-[12px] font-medium px-2 sm:px-2.5 py-1 rounded-full bg-slate-50 border border-slate-200 text-slate-600">
+                      <Package size={10} className="sm:w-[11px] sm:h-[11px] text-[#2F4479]" /> {pkg.package_name}
                     </span>
                   ))}
                 </div>
-                <div className="w-28 shrink-0">
+                <div className="w-20 sm:w-24 md:w-28 shrink-0">
                   <ProgressPill percentage={p.packages?.[0]?.completion_percentage ?? 0} />
-                  <p className="text-[10px] text-slate-400 mt-0.5 text-right">
+                  <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 mt-0.5 text-right">
                     {p.packages?.[0]?.answered ?? 0}/{p.packages?.[0]?.total_questions ?? 0}
                   </p>
                 </div>
-                <ChevronRight size={17} className="text-slate-300 shrink-0" />
+                <ChevronRight size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-slate-300 shrink-0" />
               </button>
             ))}
           </div>
@@ -815,43 +931,43 @@ function PatientDetailView({ loading, error, data, onOpenSubheading, onRetry, fo
   const { user, packages } = data;
 
   return (
-    <div className="space-y-6">
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-5">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-[#2F4479] flex items-center justify-center shrink-0">
-            <User size={20} className="text-white" />
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-3 sm:p-4 md:p-5">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <div className="w-10 h-10 sm:w-11 sm:h-11 md:w-12 md:h-12 rounded-full bg-[#2F4479] flex items-center justify-center shrink-0">
+            <User size={16} className="sm:w-[18px] sm:h-[18px] md:w-[20px] md:h-[20px] text-white" />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-[16px] font-semibold text-slate-800">{user.name}</p>
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-              <span className="flex items-center gap-1.5 text-[12.5px] text-slate-500"><Mail size={12} /> {user.email}</span>
-              <span className="flex items-center gap-1.5 text-[12.5px] text-slate-500"><Phone size={12} /> {user.phone}</span>
-              <span className="flex items-center gap-1.5 text-[12.5px] text-slate-500"><Calendar size={12} /> Registered {formatDate(user.registered_at)}</span>
+            <p className="text-[14px] sm:text-[15px] md:text-[16px] font-semibold text-slate-800">{user.name}</p>
+            <div className="flex flex-col xs:flex-row xs:flex-wrap items-start xs:items-center gap-x-3 sm:gap-x-4 gap-y-0.5 sm:gap-y-1 mt-0.5 sm:mt-1">
+              <span className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] md:text-[12.5px] text-slate-500"><Mail size={11} className="sm:w-[12px] sm:h-[12px]" /> {user.email}</span>
+              <span className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] md:text-[12.5px] text-slate-500"><Phone size={11} className="sm:w-[12px] sm:h-[12px]" /> {user.phone}</span>
+              <span className="flex items-center gap-1 sm:gap-1.5 text-[10px] sm:text-[11px] md:text-[12.5px] text-slate-500"><Calendar size={11} className="sm:w-[12px] sm:h-[12px]" /> Registered {formatDate(user.registered_at)}</span>
             </div>
           </div>
         </div>
       </div>
 
       {(packages || []).map((pkg) => (
-        <div key={pkg.package_id} className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-[#2F4479]/10 flex items-center justify-center shrink-0">
-                <Package size={17} className="text-[#2F4479]" />
+        <div key={pkg.package_id} className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+          <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg bg-[#2F4479]/10 flex items-center justify-center shrink-0">
+                <Package size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#2F4479]" />
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-[14px] font-semibold text-slate-800">{pkg.package_name}</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                  <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">{pkg.package_name}</p>
                   {pkg.overall?.is_completed && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded bg-[#1F6D48]/10 text-[#1F6D48]">
-                      <BadgeCheck size={11} /> Complete
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded bg-[#1F6D48]/10 text-[#1F6D48]">
+                      <BadgeCheck size={10} className="sm:w-[11px] sm:h-[11px]" /> Complete
                     </span>
                   )}
                 </div>
-                <p className="text-[12px] text-slate-500">₹{formatCurrency(pkg.package_price)} · Paid {formatDate(pkg.paid_at)}</p>
+                <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500">₹{formatCurrency(pkg.package_price)} · Paid {formatDate(pkg.paid_at)}</p>
               </div>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3 md:gap-4 flex-wrap">
               <MiniStat label="Answered" value={`${pkg.overall?.answered_questions ?? 0}/${pkg.overall?.total_questions ?? 0}`} />
               <MiniStat label="Sections" value={`${pkg.overall?.completed_subheadings ?? 0}/${pkg.overall?.total_subheadings ?? 0}`} />
               <ProgressPill percentage={pkg.overall?.completion_percentage ?? 0} wide />
@@ -865,28 +981,28 @@ function PatientDetailView({ loading, error, data, onOpenSubheading, onRetry, fo
                 <button
                   key={sh.subheading_id}
                   onClick={() => onOpenSubheading(sh.subheading_id, pkg.package_id, sh.is_epi, assessmentTypes)}
-                  className="w-full flex items-center gap-4 px-5 py-3.5 hover:bg-[#2F4479]/[0.03] transition-colors text-left"
+                  className="w-full flex items-center gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-3.5 hover:bg-[#2F4479]/[0.03] transition-colors text-left"
                 >
                   <StatusIcon status={sh.status} />
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-[13.5px] font-medium text-slate-800">{sh.subheading_name}</p>
+                    <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+                      <p className="text-[11px] sm:text-[12px] md:text-[13.5px] font-medium text-slate-800">{sh.subheading_name}</p>
                       {sh.is_epi && <AssessmentBadge label="EPI" color="bg-[#E85720]/10 text-[#E85720]" />}
                       {assessmentTypes.isMpq && <AssessmentBadge label="MPQ" color="bg-[#2F4479]/10 text-[#2F4479]" />}
                       {assessmentTypes.isPhq9 && <AssessmentBadge label="PHQ-9" color="bg-[#1F6D48]/10 text-[#1F6D48]" />}
                       {assessmentTypes.isSct && <AssessmentBadge label="SCT" color="bg-purple-100 text-purple-700" />}
                       {assessmentTypes.isGhq28 && <AssessmentBadge label="GHQ-28" color="bg-amber-100 text-amber-700" />}
                     </div>
-                    <p className="text-[12px] text-slate-500 mt-0.5">
+                    <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-0.5 line-clamp-1">
                       {sh.answered}/{sh.total_questions} answered
                       {sh.pending > 0 && ` · ${sh.pending} pending`}
                       {sh.answered > 0 && ` · ${sh.correct} correct / ${sh.wrong} wrong`}
                     </p>
                   </div>
-                  <div className="hidden sm:block w-32 shrink-0">
+                  <div className="hidden sm:block w-24 md:w-28 lg:w-32 shrink-0">
                     <ProgressPill percentage={sh.completion_percentage} />
                   </div>
-                  <ChevronRight size={16} className="text-slate-300 shrink-0" />
+                  <ChevronRight size={14} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-slate-300 shrink-0" />
                 </button>
               );
             })}
@@ -917,31 +1033,31 @@ function SubheadingDetailView({
   const assessmentTypes = detectAssessmentType(subheading.name);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-5 md:space-y-6">
       {/* Subheading Summary */}
-      <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-5">
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-[16px] font-semibold text-slate-800">{subheading.name}</p>
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-3 sm:p-4 md:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 sm:gap-3 md:gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <p className="text-[13px] sm:text-[14px] md:text-[16px] font-semibold text-slate-800">{subheading.name}</p>
               {is_epi && <AssessmentBadge label="EPI" color="bg-[#E85720]/10 text-[#E85720]" />}
               {assessmentTypes.isMpq && <AssessmentBadge label="MPQ" color="bg-[#2F4479]/10 text-[#2F4479]" />}
               {assessmentTypes.isPhq9 && <AssessmentBadge label="PHQ-9" color="bg-[#1F6D48]/10 text-[#1F6D48]" />}
               {assessmentTypes.isSct && <AssessmentBadge label="SCT" color="bg-purple-100 text-purple-700" />}
               {assessmentTypes.isGhq28 && <AssessmentBadge label="GHQ-28" color="bg-amber-100 text-amber-700" />}
             </div>
-            <p className="text-[13px] text-slate-500 mt-0.5">{subheading.description}</p>
+            <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-500 mt-0.5">{subheading.description}</p>
           </div>
           <StatusBadge status={summary.status} />
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 sm:gap-3 mt-3 sm:mt-4 md:mt-5">
           <SummaryStat label="Total" value={summary.total_questions} />
           <SummaryStat label="Answered" value={summary.answered} valueClass="text-[#2F4479]" />
           <SummaryStat label="Pending" value={summary.pending} valueClass="text-[#E85720]" />
           <SummaryStat label="Correct" value={summary.correct} valueClass="text-[#1F6D48]" />
           <SummaryStat label="Accuracy" value={`${summary.accuracy}%`} valueClass="text-slate-800" />
         </div>
-        <div className="mt-4">
+        <div className="mt-3 sm:mt-4">
           <ProgressPill percentage={summary.completion_percentage} wide />
         </div>
       </div>
@@ -976,32 +1092,32 @@ function SubheadingDetailView({
 
       {/* Questions List - Show for non-SCT assessments */}
       {!assessmentTypes.isSct && (
-        <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-          <div className="px-5 py-3 border-b border-slate-100">
-            <p className="text-[13px] font-semibold text-slate-700">Question Responses</p>
+        <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+          <div className="px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 border-b border-slate-100">
+            <p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-700">Question Responses</p>
           </div>
           <div className="divide-y divide-slate-50">
             {(questions || []).map((q) => (
-              <div key={q.question_id} className="flex items-start gap-4 px-5 py-4">
-                <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[11px] font-semibold text-slate-500 shrink-0 mt-0.5">
+              <div key={q.question_id} className="flex items-start gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-3 sm:py-4">
+                <span className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-slate-100 flex items-center justify-center text-[9px] sm:text-[10px] md:text-[11px] font-semibold text-slate-500 shrink-0 mt-0.5">
                   {q.display_order}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="text-[13.5px] text-slate-800 leading-snug">{q.question_text}</p>
-                  <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <p className="text-[11px] sm:text-[12px] md:text-[13.5px] text-slate-800 leading-snug">{q.question_text}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mt-1.5 sm:mt-2">
                     <AnswerChip
                       label="Answer"
                       value={formatEpiValue(q.user_answer) || formatEpiValue(q.answer_text) || "—"}
                       tone={q.status !== "answered" ? "neutral" : q.is_correct ? "success" : "wrong"}
                     />
                     {q.correct_answer && <AnswerChip label="Expected" value={formatEpiValue(q.correct_answer)} tone="muted" />}
-                    {q.answered_at && <span className="text-[11px] text-slate-400">{formatDate(q.answered_at)}</span>}
+                    {q.answered_at && <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">{formatDate(q.answered_at)}</span>}
                   </div>
                 </div>
                 <div className="shrink-0">
-                  {q.status !== "answered" ? <Circle size={17} className="text-slate-300" /> :
-                   q.is_correct ? <Check size={17} className="text-[#1F6D48]" strokeWidth={2.5} /> :
-                   <X size={17} className="text-rose-400" strokeWidth={2.5} />}
+                  {q.status !== "answered" ? <Circle size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-slate-300" /> :
+                   q.is_correct ? <Check size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#1F6D48]" strokeWidth={2.5} /> :
+                   <X size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-rose-400" strokeWidth={2.5} />}
                 </div>
               </div>
             ))}
@@ -1017,7 +1133,7 @@ function SubheadingDetailView({
 // ============================================================================
 function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatingAnswerIds }) {
   if (loading) return <LoadingState label="Loading SCT questions..." />;
-  if (error) return <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-6"><ErrorState message={error} /></div>;
+  if (error) return <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 sm:p-6"><ErrorState message={error} /></div>;
   if (!questionsAnswers) return null;
 
   const { questions_answers } = questionsAnswers;
@@ -1025,16 +1141,16 @@ function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatin
   const totalCount = questions_answers.length;
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100">
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100">
         <div>
-          <p className="text-[14px] font-semibold text-slate-800">SCT Question Scoring</p>
-          <p className="text-[12px] text-slate-500 mt-0.5">
+          <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">SCT Question Scoring</p>
+          <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-0.5">
             {scoredCount} of {totalCount} questions scored · Click checkbox to toggle scoring (instant)
           </p>
         </div>
       </div>
-      <div className="divide-y divide-slate-50 max-h-[600px] overflow-y-auto">
+      <div className="divide-y divide-slate-50 max-h-[400px] sm:max-h-[500px] md:max-h-[600px] overflow-y-auto">
         {questions_answers.map((qa) => {
           const isScored = qa.score_value !== null;
           const isUpdating = updatingAnswerIds.has(qa.answer_id);
@@ -1042,28 +1158,28 @@ function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatin
           return (
             <div 
               key={qa.question_id} 
-              className={`flex items-start gap-4 px-5 py-4 transition-colors ${
+              className={`flex items-start gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-3 sm:py-4 transition-colors ${
                 isScored ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'
               }`}
             >
-              <span className="w-7 h-7 rounded-full bg-purple-100 flex items-center justify-center text-[11px] font-bold text-purple-700 shrink-0 mt-0.5">
+              <span className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-purple-100 flex items-center justify-center text-[9px] sm:text-[10px] md:text-[11px] font-bold text-purple-700 shrink-0 mt-0.5">
                 {qa.display_order}
               </span>
               <div className="flex-1 min-w-0">
-                <p className="text-[13.5px] text-slate-800 font-medium leading-snug">{qa.question_text}</p>
-                <div className="flex items-center gap-3 mt-1.5">
-                  <p className="text-[12px] text-[#2F4479] italic">
+                <p className="text-[11px] sm:text-[12px] md:text-[13.5px] text-slate-800 font-medium leading-snug">{qa.question_text}</p>
+                <div className="flex items-center gap-2 sm:gap-3 mt-1 sm:mt-1.5">
+                  <p className="text-[10px] sm:text-[11px] md:text-[12px] text-[#2F4479] italic line-clamp-2">
                     "{qa.patient_answer || "No response"}"
                   </p>
                   {isScored && (
-                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-                      <Check size={10} />
+                    <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">
+                      <Check size={9} className="sm:w-[10px] sm:h-[10px]" />
                       Negative
                     </span>
                   )}
                 </div>
                 {qa.answered_at && (
-                  <p className="text-[10px] text-slate-400 mt-1">
+                  <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 mt-0.5 sm:mt-1">
                     Answered {new Date(qa.answered_at).toLocaleString("en-IN", {
                       day: "numeric",
                       month: "short",
@@ -1081,11 +1197,11 @@ function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatin
                 title={isScored ? "Click to unscore" : "Click to score as negative"}
               >
                 {isUpdating ? (
-                  <div className="w-[18px] h-[18px] rounded border-2 border-purple-400 border-t-transparent animate-spin" />
+                  <div className="w-[16px] h-[16px] sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] rounded border-2 border-purple-400 border-t-transparent animate-spin" />
                 ) : isScored ? (
-                  <CheckSquare size={18} className="text-red-500" />
+                  <CheckSquare size={16} className="sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] text-red-500" />
                 ) : (
-                  <Square size={18} className="text-slate-300 hover:text-red-400 transition-colors" />
+                  <Square size={16} className="sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] text-slate-300 hover:text-red-400 transition-colors" />
                 )}
               </button>
             </div>
@@ -1098,6 +1214,9 @@ function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatin
 
 // ============================================================================
 // SCT Report Card - Modern Report View
+// ============================================================================
+// ============================================================================
+// SCT Report Card - Modern Report View (FIXED - RS shown only in table)
 // ============================================================================
 function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLoading, qaError }) {
   const printRef = useRef(null);
@@ -1122,7 +1241,7 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
     answers 
   } = sct_report;
 
-  // Scale score configurations
+  // Scale score configurations - EXCLUDING repressor_sensitiser (shown in main table as RS)
   const scaleConfigs = {
     at_mother: { label: "Mother", icon: "👩", color: "#EC4899", description: "Attitude towards mother" },
     at_father: { label: "Father", icon: "👨", color: "#3B82F6", description: "Attitude towards father" },
@@ -1140,6 +1259,9 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
     at_future: { label: "Future", icon: "🔮", color: "#0EA5E9", description: "Attitude towards future" },
     goals: { label: "Goals", icon: "🎯", color: "#D946EF", description: "Goals & aspirations" },
   };
+
+  // Keys to EXCLUDE from scale scores display (these are shown in the main table as RS)
+  const EXCLUDED_SCALE_KEYS = ['repressor_sensitiser', 'repressor_sensitizer'];
 
   const getScoreLevel = (score) => {
     if (score >= 4) return { level: "Positive", color: "#10B981", bgColor: "#D1FAE5" };
@@ -1179,8 +1301,14 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
 
       addSectionHeader("SCALE SCORES");
       if (scale_scores) {
-        Object.entries(scale_scores).forEach(([key, score]) => {
+        // Filter out excluded keys (like repressor_sensitiser)
+        const validScaleKeys = Object.keys(scale_scores).filter(key => 
+          !EXCLUDED_SCALE_KEYS.includes(key.toLowerCase()) && scaleConfigs[key] !== undefined
+        );
+        
+        validScaleKeys.forEach((key) => {
           if (yPos > pageHeight - 20) { pdf.addPage(); yPos = margin; }
+          const score = scale_scores[key];
           const config = scaleConfigs[key] || { label: key, color: "#64748B" };
           const { level, color } = getScoreLevel(score);
           pdf.setDrawColor(220, 220, 220); pdf.setFillColor(252, 252, 252); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 10, 1, 1, 'FD');
@@ -1210,38 +1338,47 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
 
   const scoredCount = answers?.filter(a => a.score_value !== null).length || 0;
 
+  // Filter scale scores to EXCLUDE repressor_sensitiser (shown in main table as RS)
+  const filteredScaleScores = scale_scores ? 
+    Object.fromEntries(
+      Object.entries(scale_scores).filter(([key]) => 
+        !EXCLUDED_SCALE_KEYS.includes(key.toLowerCase()) && scaleConfigs[key] !== undefined
+      )
+    ) : 
+    null;
+
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-            <Brain size={17} className="text-purple-700" />
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
+            <Brain size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-purple-700" />
           </div>
           <div className="min-w-0">
-            <p className="text-[14px] font-semibold text-slate-800">SCT Sentence Completion Test</p>
-            <p className="text-[12px] text-slate-500">Sentence completion responses</p>
+            <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">SCT Sentence Completion Test</p>
+            <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500">Sentence completion responses</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-semibold border bg-purple-100 text-purple-700 border-purple-200">
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+          <span className="hidden sm:inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-semibold border bg-purple-100 text-purple-700 border-purple-200">
             {scoredCount > 0 ? `${scoredCount}/${answered} scored` : `${answered}/${total} completed`}
           </span>
           <button 
             onClick={() => setShowReport(!showReport)} 
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-purple-600 text-white text-[12.5px] font-medium hover:bg-purple-700 transition-colors"
+            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-purple-600 text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-purple-700 transition-colors"
           >
             {showReport ? 'Hide Report' : 'Go Report'}
           </button>
         </div>
       </div>
       {downloadError && (
-        <div className="px-5 py-3 mx-5 mb-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-start gap-2">
-            <XCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
+        <div className="px-3 sm:px-4 md:px-5 py-2 sm:py-3 mx-3 sm:mx-4 md:mx-5 mb-2 sm:mb-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <XCircle size={14} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-red-500 mt-0.5 shrink-0" />
             <div>
-              <p className="text-[13px] font-medium text-red-700">Download Failed</p>
-              <p className="text-[12px] text-red-600 mt-0.5">{downloadError}</p>
-              <button onClick={() => setDownloadError(null)} className="mt-2 text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
+              <p className="text-[11px] sm:text-[12px] md:text-[13px] font-medium text-red-700">Download Failed</p>
+              <p className="text-[10px] sm:text-[11px] md:text-[12px] text-red-600 mt-0.5">{downloadError}</p>
+              <button onClick={() => setDownloadError(null)} className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] md:text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
             </div>
           </div>
         </div>
@@ -1249,34 +1386,34 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
 
       {/* Report Content */}
       {showReport && (
-        <div ref={printRef} className="p-6 space-y-6 bg-white">
+        <div ref={printRef} className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
           {/* Patient Info Header */}
-          <div className="border-b border-slate-200 pb-5">
-            <div className="flex items-center justify-between gap-4">
+          <div className="border-b border-slate-200 pb-4 sm:pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
               <div>
-                <h1 className="text-xl font-bold text-slate-800 mb-1">SCT Assessment Report</h1>
-                <p className="text-[13px] text-slate-500">Sentence Completion Test Results</p>
+                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 mb-1">SCT Assessment Report</h1>
+                <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-500">Sentence Completion Test Results</p>
               </div>
-              <div className="text-right">
+              <div className="text-left sm:text-right">
                 <StatusBadge status={is_completed ? "completed" : "in_progress"} />
               </div>
             </div>
-            <div className="flex items-center gap-4 mt-4">
+            <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3 sm:gap-4 mt-3 sm:mt-4">
               <div>
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient</p>
-                <p className="text-[14px] font-semibold text-slate-800">{user?.name || "N/A"}</p>
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient</p>
+                <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">{user?.name || "N/A"}</p>
               </div>
-              <div className="w-px h-8 bg-slate-200" />
+              <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
               <div>
-                <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Email</p>
-                <p className="text-[13px] text-slate-700">{user?.email || "N/A"}</p>
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Email</p>
+                <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-700">{user?.email || "N/A"}</p>
               </div>
               {user?.id && (
                 <>
-                  <div className="w-px h-8 bg-slate-200" />
+                  <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
                   <div>
-                    <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p>
-                    <p className="text-[13px] text-slate-700">#{user.id}</p>
+                    <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p>
+                    <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-700">#{user.id}</p>
                   </div>
                 </>
               )}
@@ -1284,36 +1421,36 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
           </div>
 
           {/* Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 p-4">
-              <p className="text-[10px] font-medium text-purple-600 uppercase tracking-wide">Completion</p>
-              <p className="text-[24px] font-bold text-purple-700 mt-1">{completion_percentage?.toFixed(1)}%</p>
-              <p className="text-[11px] text-purple-500">{answered}/{total} answers</p>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 p-3 sm:p-4">
+              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-purple-600 uppercase tracking-wide">Completion</p>
+              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-purple-700 mt-0.5 sm:mt-1">{completion_percentage?.toFixed(1)}%</p>
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-purple-500">{answered}/{total} answers</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 p-4">
-              <p className="text-[10px] font-medium text-green-600 uppercase tracking-wide">Positive</p>
-              <p className="text-[24px] font-bold text-green-700 mt-1">{positive || 0}</p>
-              <p className="text-[11px] text-green-500">Responses</p>
+            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 p-3 sm:p-4">
+              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-green-600 uppercase tracking-wide">Positive</p>
+              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-green-700 mt-0.5 sm:mt-1">{positive || 0}</p>
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-green-500">Responses</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-red-50 to-rose-100 border border-red-200 p-4">
-              <p className="text-[10px] font-medium text-red-600 uppercase tracking-wide">Negative</p>
-              <p className="text-[24px] font-bold text-red-700 mt-1">{negative || 0}</p>
-              <p className="text-[11px] text-red-500">Responses</p>
+            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-red-50 to-rose-100 border border-red-200 p-3 sm:p-4">
+              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-red-600 uppercase tracking-wide">Negative</p>
+              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-red-700 mt-0.5 sm:mt-1">{negative || 0}</p>
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-red-500">Responses</p>
             </div>
-            <div className="rounded-xl bg-gradient-to-br from-amber-50 to-yellow-100 border border-amber-200 p-4">
-              <p className="text-[10px] font-medium text-amber-600 uppercase tracking-wide">Scored</p>
-              <p className="text-[24px] font-bold text-amber-700 mt-1">{scoredCount}</p>
-              <p className="text-[11px] text-amber-500">Marked negative</p>
+            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-50 to-yellow-100 border border-amber-200 p-3 sm:p-4">
+              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-amber-600 uppercase tracking-wide">Scored</p>
+              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-amber-700 mt-0.5 sm:mt-1">{scoredCount}</p>
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-amber-500">Marked negative</p>
             </div>
           </div>
 
           {/* Progress Bar */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-[11px] font-medium text-slate-500">Response Distribution</p>
-              <p className="text-[11px] text-slate-400">{positive || 0} positive · {negative || 0} negative</p>
+            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">Response Distribution</p>
+              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">{positive || 0} positive · {negative || 0} negative</p>
             </div>
-            <div className="h-3 rounded-full bg-slate-100 overflow-hidden flex">
+            <div className="h-2.5 sm:h-3 rounded-full bg-slate-100 overflow-hidden flex">
               {positive > 0 && (
                 <div 
                   className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all" 
@@ -1330,45 +1467,50 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
             </div>
           </div>
 
-          {/* Scale Scores - Modern Card Grid */}
+          {/* Scale Scores - Modern Card Grid - EXCLUDING repressor_sensitiser */}
           <div>
-            <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-4">Attitude Scale Scores</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-              {scale_scores && Object.entries(scale_scores).map(([key, score]) => {
-                const config = scaleConfigs[key] || { label: key.replace(/_/g, ' '), icon: "📊", color: "#64748B", description: "" };
+            <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3 sm:mb-4">Attitude Scale Scores</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3">
+              {filteredScaleScores && Object.entries(filteredScaleScores).map(([key, score]) => {
+                const config = scaleConfigs[key] || { 
+                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), 
+                  icon: "📊", 
+                  color: "#64748B", 
+                  description: "" 
+                };
                 const { level, color, bgColor } = getScoreLevel(score);
                 const percentage = (score / 4) * 100;
                 
                 return (
                   <div 
-                    key={key} 
-                    className="rounded-xl border border-slate-200 bg-white p-4 hover:shadow-md transition-shadow"
+                    key={key === "REPRESSOR_SENSITISER" ? "RS" : key} 
+                    className="rounded-lg sm:rounded-xl border border-slate-200 bg-white p-3 sm:p-4 hover:shadow-md transition-shadow"
                   >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg">{config.icon}</span>
+                    <div className="flex items-center justify-between mb-2 sm:mb-3">
+                      <div className="flex items-center gap-1.5 sm:gap-2">
+                        <span className="text-base sm:text-lg">{config.icon}</span>
                         <div>
-                          <p className="text-[12px] font-semibold text-slate-800">{config.label}</p>
-                          <p className="text-[10px] text-slate-400">{config.description}</p>
+                          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-slate-800">{config.label}</p>
+                          <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 hidden sm:block">{config.description}</p>
                         </div>
                       </div>
                       <span 
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] md:text-[10px] font-bold"
                         style={{ backgroundColor: bgColor, color: color }}
                       >
                         {score}/4
                       </span>
                     </div>
-                    <div className="space-y-1.5">
-                      <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                    <div className="space-y-1 sm:space-y-1.5">
+                      <div className="h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden">
                         <div 
                           className="h-full rounded-full transition-all duration-500"
                           style={{ width: `${percentage}%`, backgroundColor: color }} 
                         />
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-400">{config.description}</span>
-                        <span className="text-[10px] font-semibold" style={{ color: color }}>{level}</span>
+                        <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 line-clamp-1">{config.description}</span>
+                        <span className="text-[8px] sm:text-[9px] md:text-[10px] font-semibold" style={{ color: color }}>{level}</span>
                       </div>
                     </div>
                   </div>
@@ -1378,39 +1520,39 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
           </div>
 
           {/* Scale Score Legend */}
-          <div className="flex items-center gap-4 p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-green-500" />
-              <span className="text-[11px] text-slate-600">Positive (4-5)</span>
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 p-2.5 sm:p-3 rounded-lg bg-slate-50 border border-slate-100">
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
+              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Positive (4-5)</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-amber-500" />
-              <span className="text-[11px] text-slate-600">Neutral (3)</span>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500" />
+              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Neutral (3)</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <div className="w-3 h-3 rounded-full bg-red-500" />
-              <span className="text-[11px] text-slate-600">Negative (0-2)</span>
+            <div className="flex items-center gap-1 sm:gap-1.5">
+              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500" />
+              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Negative (0-2)</span>
             </div>
           </div>
 
           {/* Download Button */}
-          <div className="flex justify-end pt-2">
+          <div className="flex justify-end pt-1 sm:pt-2">
             <button 
               onClick={handleDownload} 
               disabled={downloading}
-              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#2F4479] text-white text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#2F4479] text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60"
             >
               {downloading ? (
-                <><Loader2 size={14} className="animate-spin" /> Generating...</>
+                <><Loader2 size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] animate-spin" /> Generating...</>
               ) : (
-                <><Download size={14} /> Download PDF Report</>
+                <><Download size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px]" /> Download PDF Report</>
               )}
             </button>
           </div>
 
           {/* Footer */}
-          <div className="border-t border-slate-200 pt-4 text-center">
-            <p className="text-[11px] text-slate-400">
+          <div className="border-t border-slate-200 pt-3 sm:pt-4 text-center">
+            <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">
               Generated on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform
             </p>
           </div>
@@ -1419,7 +1561,6 @@ function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLo
     </div>
   );
 }
-
 // ============================================================================
 // EPI Report Card (with PDF download)
 // ============================================================================
@@ -1538,33 +1679,35 @@ function EpiReportCard({ loading, error, report, onRetry }) {
 
   return (
     <ReportCardWrapper
-      icon={<Sparkles size={17} className="text-[#E85720]" />}
+      icon={<Sparkles size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#E85720]" />}
       iconBg="bg-[#E85720]/10"
       title="EPI Personality Report"
       subtitle="Eysenck Personality Inventory result"
-      badge={personality_type ? { icon: <BadgeCheck size={13} />, text: personality_type, className: "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" } : null}
+      badge={personality_type ? { icon: <BadgeCheck size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" />, text: personality_type, className: "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" } : null}
       onDownload={handleDownload}
       downloading={downloading}
       downloadError={downloadError}
       setDownloadError={setDownloadError}
       printRef={printRef}
     >
-      <div ref={printRef} className="p-8 space-y-8 bg-white">
+      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 bg-white">
         <ReportHeader title="EPI Personality Assessment Report" user={user} savedReport={saved_report} />
-        <div className="flex justify-center py-4">
-          <EpiQuadrantWheel eScore={e_score} nScore={n_score} maxScore={graph_data?.max_score ?? 24} personalityType={personality_type} />
+        <div className="flex justify-center py-2 sm:py-3 md:py-4 overflow-x-auto">
+          <div className="min-w-[300px] sm:min-w-[400px] md:min-w-[500px]">
+            <EpiQuadrantWheel eScore={e_score} nScore={n_score} maxScore={graph_data?.max_score ?? 24} personalityType={personality_type} />
+          </div>
         </div>
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Dimension Scores</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Dimension Scores</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
             <EpiScoreBar label="Extraversion (E)" score={e_score} max={graph_data?.max_score || 24} percentage={graph_data?.e_percentage} color="#E85720" />
             <EpiScoreBar label="Neuroticism (N)" score={n_score} max={graph_data?.max_score || 24} percentage={graph_data?.n_percentage} color="#2F4479" />
             <EpiScoreBar label="Lie Scale (L)" score={l_score} max={9} percentage={l_score ? (l_score / 9) * 100 : 0} color="#1F6D48" />
           </div>
         </div>
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Personality Profile</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Personality Profile</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             {personality_type && <InfoCard label="Personality Type" value={personality_type} color="[#1F6D48]" />}
             {graph_data?.quadrant && <InfoCard label="Quadrant" value={graph_data.quadrant.replace("-", " ")} color="[#2F4479]" />}
           </div>
@@ -1631,7 +1774,7 @@ function MPQReportCard({ loading, error, report, onRetry }) {
         const pct = (score / config.totalQuestions) * 100;
 
         pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 18, 2, 2, 'FD');
-        pdf.setFontSize(11); pdf.setTextColor(0, 0, 0); pdf.text(`${key}`, margin + 3, yPos + 6);
+        pdf.setFontSize(11); pdf.setTextColor(0, 0, 0); pdf.text(`${key === "REPRESSOR_SENSITISER" ? "RS" : key}`, margin + 3, yPos + 6);
         pdf.setFontSize(9); pdf.setTextColor(80, 80, 80); pdf.text(`${config.name} (${config.totalQuestions} questions)`, margin + 20, yPos + 6);
         pdf.setFontSize(7); pdf.setTextColor(120, 120, 120); pdf.text(config.description, margin + 20, yPos + 12);
         pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`${score}/${config.totalQuestions}`, margin + 130, yPos + 6);
@@ -1671,7 +1814,7 @@ function MPQReportCard({ loading, error, report, onRetry }) {
 
   return (
     <ReportCardWrapper
-      icon={<Activity size={17} className="text-[#2F4479]" />}
+      icon={<Activity size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#2F4479]" />}
       iconBg="bg-[#2F4479]/10"
       title="MPQ Personality Report"
       subtitle="Multiphasic Personality Questionnaire result"
@@ -1681,47 +1824,51 @@ function MPQReportCard({ loading, error, report, onRetry }) {
       setDownloadError={setDownloadError}
       printRef={printRef}
     >
-      <div ref={printRef} className="p-8 space-y-6 bg-white">
+      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
         <ReportHeader title="MPQ Personality Assessment Report" user={user} savedReport={saved_report} />
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Scale Summary</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full text-[12px]">
-              <thead>
-                <tr className="border-b border-slate-200">
-                  <th className="text-left py-2 px-2 font-semibold text-slate-500">Scale</th>
-                  <th className="text-left py-2 px-2 font-semibold text-slate-500">Name</th>
-                  <th className="text-center py-2 px-2 font-semibold text-slate-500">Score</th>
-                  <th className="text-center py-2 px-2 font-semibold text-slate-500">Questions</th>
-                  <th className="text-center py-2 px-2 font-semibold text-slate-500">Percentage</th>
-                  <th className="text-center py-2 px-2 font-semibold text-slate-500">Cutoff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(scores).map(([key, score]) => {
-                  const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24 };
-                  const interp = interpretation?.[key];
-                  const pct = ((score / config.totalQuestions) * 100).toFixed(1);
-                  return (
-                    <tr key={key} className="border-b border-slate-100 hover:bg-slate-50">
-                      <td className="py-2.5 px-2"><span className="w-8 h-8 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[12px] font-bold text-[#2F4479]">{key}</span></td>
-                      <td className="py-2.5 px-2"><p className="font-medium text-slate-800">{config.name}</p></td>
-                      <td className="py-2.5 px-2 text-center"><span className="font-bold text-slate-800">{score}</span></td>
-                      <td className="py-2.5 px-2 text-center text-slate-500">{config.totalQuestions}</td>
-                      <td className="py-2.5 px-2 text-center"><span className="font-medium text-slate-700">{pct}%</span></td>
-                      <td className="py-2.5 px-2 text-center">
-                        <CutoffBadge score={score} cutoff={interp?.cutoff} isAboveCutoff={interp?.is_above_cutoff} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Scale Summary</h2>
+          <div className="overflow-x-auto -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8">
+            <div className="min-w-[600px] md:min-w-[700px] lg:min-w-full">
+              <table className="w-full text-[10px] sm:text-[11px] md:text-[12px]">
+                <thead>
+                  <tr className="border-b border-slate-200">
+                    <th className="text-left py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Scale</th>
+                    <th className="text-left py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Name</th>
+                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Score</th>
+                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Questions</th>
+                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Percentage</th>
+                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Cutoff</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  
+                  {Object.entries(scores).map(([key, score]) => {
+                    console.log(scores);
+                    const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24 };
+                    const interp = interpretation?.[key];
+                    const pct = ((score / config.totalQuestions) * 100).toFixed(1);
+                    return (
+                      <tr key={key === "REPRESSOR_SENSITISER" ? "RS" : key}className="border-b border-slate-100 hover:bg-slate-50">
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2"><span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[10px] sm:text-[11px] md:text-[12px] font-bold text-[#2F4479]">{key === "REPRESSOR_SENSITISER" ? "RS" : key}</span></td>
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2"><p className="font-medium text-slate-800">{config.name}</p></td>
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center"><span className="font-bold text-slate-800">{score}</span></td>
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center text-slate-500">{config.totalQuestions}</td>
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center"><span className="font-medium text-slate-700">{pct}%</span></td>
+                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center">
+                          <CutoffBadge score={score} cutoff={interp?.cutoff} isAboveCutoff={interp?.is_above_cutoff} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-4">Scale Details</h2>
-          <div className="space-y-3">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3 sm:mb-4">Scale Details</h2>
+          <div className="space-y-2 sm:space-y-3">
             {Object.entries(scores).map(([key, score]) => {
               const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24, description: "" };
               const interp = interpretation?.[key];
@@ -1729,24 +1876,24 @@ function MPQReportCard({ loading, error, report, onRetry }) {
               const isAbove = !!interp?.is_above_cutoff;
               const colorHex = isAbove ? "#E85720" : "#1F6D48";
               return (
-                <div key={key} className="rounded-xl border border-slate-100 bg-white p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-3">
-                      <span className="w-10 h-10 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[13px] font-bold text-[#2F4479]">{key}</span>
-                      <div><p className="text-[13px] font-semibold text-slate-800">{config.name}</p><p className="text-[11px] text-slate-500">{config.description}</p></div>
+                <div key={key === "REPRESSOR_SENSITISER" ? "RS" : key} className="rounded-lg sm:rounded-xl border border-slate-100 bg-white p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
+                    <div className="flex items-center gap-2 sm:gap-3">
+                      <span className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[11px] sm:text-[12px] md:text-[13px] font-bold text-[#2F4479]">{key === "REPRESSOR_SENSITISER" ? "RS" : key}</span>
+                      <div><p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{config.name}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 hidden sm:block">{config.description}</p></div>
                     </div>
                     <div className="text-right">
-                      <p className="text-[15px] font-bold text-slate-800">{score}<span className="text-slate-400 text-[12px]">/{config.totalQuestions}</span></p>
+                      <p className="text-[13px] sm:text-[14px] md:text-[15px] font-bold text-slate-800">{score}<span className="text-slate-400 text-[10px] sm:text-[11px] md:text-[12px]">/{config.totalQuestions}</span></p>
                       <CutoffBadge score={score} cutoff={interp?.cutoff} isAboveCutoff={interp?.is_above_cutoff} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: colorHex }} /></div>
-                    <span className="text-[11px] font-medium text-slate-500 w-12 text-right">{pct.toFixed(1)}%</span>
+                  <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex-1 h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: colorHex }} /></div>
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 w-10 sm:w-12 text-right">{pct.toFixed(1)}%</span>
                   </div>
-                  <div className="flex items-center justify-between mt-1">
-                    <p className="text-[10px] text-slate-400">{score} of {config.totalQuestions} questions</p>
-                    <p className="text-[10px] text-slate-400">Cutoff: {interp?.cutoff ?? "—"}</p>
+                  <div className="flex items-center justify-between mt-0.5 sm:mt-1">
+                    <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{score} of {config.totalQuestions} questions</p>
+                    <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">Cutoff: {interp?.cutoff ?? "—"}</p>
                   </div>
                 </div>
               );
@@ -1845,7 +1992,7 @@ function PHQ9ReportCard({ loading, error, report, onRetry }) {
 
   return (
     <ReportCardWrapper
-      icon={<Heart size={17} className="text-[#1F6D48]" />}
+      icon={<Heart size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#1F6D48]" />}
       iconBg="bg-[#1F6D48]/10"
       title="PHQ-9 Depression Assessment"
       subtitle="Patient Health Questionnaire result"
@@ -1856,42 +2003,42 @@ function PHQ9ReportCard({ loading, error, report, onRetry }) {
       setDownloadError={setDownloadError}
       printRef={printRef}
     >
-      <div ref={printRef} className="p-8 space-y-6 bg-white">
+      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
         <ReportHeader title="PHQ-9 Depression Assessment Report" user={user} savedReport={saved_report} />
-        <div className="rounded-2xl border-2 p-6" style={{ borderColor: `${severityColor}40`, backgroundColor: `${severityColor}08` }}>
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl sm:rounded-2xl border-2 p-4 sm:p-5 md:p-6" style={{ borderColor: `${severityColor}40`, backgroundColor: `${severityColor}08` }}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <p className="text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-1">Total Score</p>
-              <p className="text-[48px] font-bold" style={{ color: severityColor }}>{total_score}<span className="text-[20px] font-normal text-slate-400">/{max_score}</span></p>
+              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-0.5 sm:mb-1">Total Score</p>
+              <p className="text-[32px] sm:text-[40px] md:text-[48px] font-bold" style={{ color: severityColor }}>{total_score}<span className="text-[16px] sm:text-[18px] md:text-[20px] font-normal text-slate-400">/{max_score}</span></p>
             </div>
-            <div className="text-right">
-              <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold border-2" style={{ backgroundColor: `${severityColor}15`, color: severityColor, borderColor: `${severityColor}40` }}>{severity?.label}</span>
-              <p className="text-[12px] text-slate-500 mt-2 max-w-[200px]">{severity?.description}</p>
+            <div className="text-left sm:text-right">
+              <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-[12px] md:text-[14px] font-bold border-2" style={{ backgroundColor: `${severityColor}15`, color: severityColor, borderColor: `${severityColor}40` }}>{severity?.label}</span>
+              <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-1.5 sm:mt-2 max-w-[200px] sm:max-w-[250px]">{severity?.description}</p>
             </div>
           </div>
-          <div className="mt-4"><div className="h-3 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(total_score / max_score) * 100}%`, backgroundColor: severityColor }} /></div><div className="flex justify-between mt-1"><span className="text-[10px] text-slate-400">0</span><span className="text-[10px] text-slate-400">{max_score}</span></div></div>
+          <div className="mt-3 sm:mt-4"><div className="h-2.5 sm:h-3 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(total_score / max_score) * 100}%`, backgroundColor: severityColor }} /></div><div className="flex justify-between mt-0.5 sm:mt-1"><span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">0</span><span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{max_score}</span></div></div>
         </div>
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Severity Scale Reference</h2>
-          <div className="grid grid-cols-5 gap-2">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Severity Scale Reference</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2">
             {Object.entries(PHQ9_SEVERITY_CONFIG).map(([label, config]) => (
-              <div key={label} className="text-center p-2 rounded-lg" style={{ backgroundColor: `${config.color}10` }}>
-                <div className="w-full h-2 rounded-full mb-1" style={{ backgroundColor: config.color }} />
-                <p className="text-[10px] font-medium" style={{ color: config.color }}>{label}</p>
-                <p className="text-[9px] text-slate-500">{config.range[0]}-{config.range[1]}</p>
+              <div key={label} className="text-center p-2 sm:p-2.5 rounded-lg" style={{ backgroundColor: `${config.color}10` }}>
+                <div className="w-full h-1.5 sm:h-2 rounded-full mb-0.5 sm:mb-1" style={{ backgroundColor: config.color }} />
+                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium" style={{ color: config.color }}>{label}</p>
+                <p className="text-[7px] sm:text-[8px] md:text-[9px] text-slate-500">{config.range[0]}-{config.range[1]}</p>
               </div>
             ))}
           </div>
         </div>
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Question Responses</h2>
-          <div className="space-y-2">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Question Responses</h2>
+          <div className="space-y-1.5 sm:space-y-2">
             {question_details && Object.entries(question_details).map(([qId, detail]) => {
               const score = detail.score || 0; const scoreColor = getPHQ9ScoreColor(score);
               return (
-                <div key={qId} className="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[12px] font-bold shrink-0" style={{ backgroundColor: `${scoreColor}20`, color: scoreColor }}>{score}</div>
-                  <div className="flex-1 min-w-0"><p className="text-[13px] text-slate-800">{detail.question_text}</p><p className="text-[11px] text-slate-500 mt-0.5">{detail.answer_text}</p></div>
+                <div key={qId} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-slate-100 bg-white">
+                  <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] md:text-[12px] font-bold shrink-0" style={{ backgroundColor: `${scoreColor}20`, color: scoreColor }}>{score}</div>
+                  <div className="flex-1 min-w-0"><p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-800">{detail.question_text}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-0.5">{detail.answer_text}</p></div>
                 </div>
               );
             })}
@@ -1975,7 +2122,7 @@ function GHQ28ReportCard({ loading, error, report, onRetry }) {
           const g = parseInt(colorHex.substring(2, 4), 16);
           const b = parseInt(colorHex.substring(4, 6), 16);
           pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 14, 2, 2, 'FD');
-          pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`${key}: ${config.name}`, margin + 3, yPos + 6);
+          pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`${key === "REPRESSOR_SENSITISER" ? "RS" : key}: ${config.name}`, margin + 3, yPos + 6);
           pdf.setFontSize(10); pdf.setTextColor(r, g, b); pdf.text(`${score}/${config.maxScore}`, margin + 80, yPos + 6);
           const barX = margin + 110; const barW = pageWidth - margin * 2 - 115;
           pdf.setDrawColor(220, 220, 220); pdf.setFillColor(240, 240, 240); pdf.roundedRect(barX, yPos + 2, barW, 4, 1, 1, 'FD');
@@ -2034,7 +2181,7 @@ function GHQ28ReportCard({ loading, error, report, onRetry }) {
 
   return (
     <ReportCardWrapper
-      icon={<Stethoscope size={17} className="text-amber-700" />}
+      icon={<Stethoscope size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-amber-700" />}
       iconBg="bg-amber-100"
       title="GHQ-28 Health Assessment"
       subtitle="General Health Questionnaire result"
@@ -2052,77 +2199,77 @@ function GHQ28ReportCard({ loading, error, report, onRetry }) {
       setDownloadError={setDownloadError}
       printRef={printRef}
     >
-      <div ref={printRef} className="p-8 space-y-6 bg-white">
+      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
         <ReportHeader title="GHQ-28 Health Assessment Report" user={user} savedReport={saved_report} />
         
         {/* Total Score Card */}
-        <div className="rounded-2xl border-2 p-6" style={{ borderColor: `${statusColor}30`, backgroundColor: `${statusColor}05` }}>
-          <div className="flex items-center justify-between">
+        <div className="rounded-xl sm:rounded-2xl border-2 p-4 sm:p-5 md:p-6" style={{ borderColor: `${statusColor}30`, backgroundColor: `${statusColor}05` }}>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
             <div>
-              <p className="text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-1">Total Score</p>
-              <p className="text-[48px] font-bold" style={{ color: statusColor }}>
-                {total_score}<span className="text-[20px] font-normal text-slate-400">/{max_score}</span>
+              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-0.5 sm:mb-1">Total Score</p>
+              <p className="text-[32px] sm:text-[40px] md:text-[48px] font-bold" style={{ color: statusColor }}>
+                {total_score}<span className="text-[16px] sm:text-[18px] md:text-[20px] font-normal text-slate-400">/{max_score}</span>
               </p>
             </div>
-            <div className="text-right">
+            <div className="text-left sm:text-right">
               {overall_status && (
                 <>
-                  <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-[14px] font-bold border-2" 
+                  <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-[12px] md:text-[14px] font-bold border-2" 
                     style={{ backgroundColor: `${statusColor}15`, color: statusColor, borderColor: `${statusColor}30` }}>
                     {overall_status.label}
                   </span>
-                  <p className="text-[12px] text-slate-500 mt-2 max-w-[200px]">{overall_status.description}</p>
+                  <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-1.5 sm:mt-2 max-w-[200px] sm:max-w-[250px]">{overall_status.description}</p>
                 </>
               )}
             </div>
           </div>
-          <div className="mt-4">
-            <div className="h-3 rounded-full bg-slate-200 overflow-hidden">
+          <div className="mt-3 sm:mt-4">
+            <div className="h-2.5 sm:h-3 rounded-full bg-slate-200 overflow-hidden">
               <div className="h-full rounded-full transition-all" style={{ width: `${(total_score / max_score) * 100}%`, backgroundColor: statusColor }} />
             </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-[10px] text-slate-400">0</span>
-              <span className="text-[10px] text-slate-400">{max_score}</span>
+            <div className="flex justify-between mt-0.5 sm:mt-1">
+              <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">0</span>
+              <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{max_score}</span>
             </div>
           </div>
         </div>
 
         {/* Completion Status */}
-        <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
             <div>
-              <p className="text-[12px] font-medium text-slate-500 uppercase tracking-wide">Completion Status</p>
-              <p className="text-[24px] font-bold text-slate-800 mt-1">
-                {answered}/{total}<span className="text-[14px] font-normal text-slate-500 ml-1">questions answered</span>
+              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide">Completion Status</p>
+              <p className="text-[20px] sm:text-[22px] md:text-[24px] font-bold text-slate-800 mt-0.5 sm:mt-1">
+                {answered}/{total}<span className="text-[12px] sm:text-[13px] md:text-[14px] font-normal text-slate-500 ml-1">questions answered</span>
               </p>
             </div>
             <StatusBadge status={is_completed ? "completed" : "in_progress"} />
           </div>
-          <div className="h-2.5 rounded-full bg-slate-200 overflow-hidden">
+          <div className="h-2 sm:h-2.5 rounded-full bg-slate-200 overflow-hidden">
             <div className="h-full rounded-full bg-amber-600 transition-all" style={{ width: `${completion_percentage}%` }} />
           </div>
-          <p className="text-[11px] text-slate-500 mt-2">{completion_percentage}% complete</p>
+          <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-1.5 sm:mt-2">{completion_percentage}% complete</p>
         </div>
 
         {/* Scale Scores */}
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Scale Scores</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Scale Scores</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
             {scale_scores && Object.entries(scale_scores).map(([key, score]) => {
               const config = GHQ28_SCALE_CONFIG[key] || { name: key, color: "#64748B", maxScore: 21 };
               const pct = (score / config.maxScore) * 100;
               return (
-                <div key={key} className="rounded-xl border border-slate-100 bg-white p-4">
-                  <div className="flex items-center justify-between mb-2">
+                <div key={key === "REPRESSOR_SENSITISER" ? "RS" : key} className="rounded-lg sm:rounded-xl border border-slate-100 bg-white p-3 sm:p-4">
+                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
                     <div>
-                      <p className="text-[11px] font-medium text-slate-500">{config.name}</p>
-                      <p className="text-[20px] font-bold" style={{ color: config.color }}>
-                        {score}<span className="text-[13px] font-normal text-slate-400">/{config.maxScore}</span>
+                      <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{config.name}</p>
+                      <p className="text-[16px] sm:text-[18px] md:text-[20px] font-bold" style={{ color: config.color }}>
+                        {score}<span className="text-[11px] sm:text-[12px] md:text-[13px] font-normal text-slate-400">/{config.maxScore}</span>
                       </p>
                     </div>
-                    <span className="text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span>
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span>
                   </div>
-                  <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
+                  <div className="h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden">
                     <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: config.color }} />
                   </div>
                 </div>
@@ -2133,27 +2280,27 @@ function GHQ28ReportCard({ loading, error, report, onRetry }) {
 
         {/* Question Responses */}
         <div>
-          <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Question Responses</h2>
-          <div className="space-y-2">
+          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Question Responses</h2>
+          <div className="space-y-1.5 sm:space-y-2">
             {Array.isArray(answers) && answers.map((answer, index) => {
               const config = GHQ28_SCALE_CONFIG[answer.scale] || { color: "#64748B" };
               const scoreValue = answer.score !== undefined ? answer.score : answer.answer_value;
               const answerColor = getGHQ28AnswerColor(scoreValue);
               return (
-                <div key={answer.question_id || index} className="flex items-start gap-3 p-3 rounded-lg border border-slate-100 bg-white">
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold text-white" style={{ backgroundColor: answerColor }}>
+                <div key={answer.question_id || index} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-slate-100 bg-white">
+                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+                    <span className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white" style={{ backgroundColor: answerColor }}>
                       {scoreValue}
                     </span>
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded" style={{ backgroundColor: `${config.color}15`, color: config.color }}>
+                    <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium px-1 sm:px-1.5 py-0.5 rounded" style={{ backgroundColor: `${config.color}15`, color: config.color }}>
                       {answer.scale}
                     </span>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[12.5px] text-slate-800">{answer.question_text}</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-[11px] text-slate-500">{answer.answer_text}</p>
-                      <span className="text-[10px] font-medium text-slate-400">· Score: {scoreValue}</span>
+                    <p className="text-[10px] sm:text-[11px] md:text-[12.5px] text-slate-800">{answer.question_text}</p>
+                    <div className="flex flex-col xs:flex-row xs:items-center gap-0.5 xs:gap-1.5 sm:gap-2 mt-0.5">
+                      <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500">{answer.answer_text}</p>
+                      <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-400">· Score: {scoreValue}</span>
                     </div>
                   </div>
                 </div>
@@ -2172,25 +2319,25 @@ function GHQ28ReportCard({ loading, error, report, onRetry }) {
 // ============================================================================
 function ReportCardWrapper({ icon, iconBg, title, subtitle, badge, onDownload, downloading, downloadError, setDownloadError, printRef, children }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-          <div className="min-w-0"><p className="text-[14px] font-semibold text-slate-800">{title}</p><p className="text-[12px] text-slate-500">{subtitle}</p></div>
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
+      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <div className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+          <div className="min-w-0"><p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">{title}</p><p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500">{subtitle}</p></div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {badge && <span className={`hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[12.5px] font-semibold border ${badge.className}`}>{badge.icon}{badge.text}</span>}
-          <button onClick={onDownload} disabled={downloading} className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#2F4479] text-white text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-            {downloading ? <><Loader2 size={14} className="animate-spin" /> Generating PDF...</> : <><Download size={14} /> Download Report</>}
+        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
+          {badge && <span className={`hidden sm:inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-semibold border ${badge.className}`}>{badge.icon}{badge.text}</span>}
+          <button onClick={onDownload} disabled={downloading} className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#2F4479] text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
+            {downloading ? <><Loader2 size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] animate-spin" /> Generating PDF...</> : <><Download size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px]" /> Download Report</>}
           </button>
         </div>
       </div>
       {downloadError && (
-        <div className="px-5 py-3 mx-5 mb-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-start gap-2">
-            <XCircle size={16} className="text-red-500 mt-0.5 shrink-0" />
-            <div><p className="text-[13px] font-medium text-red-700">Download Failed</p><p className="text-[12px] text-red-600 mt-0.5">{downloadError}</p>
-              <button onClick={() => setDownloadError(null)} className="mt-2 text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
+        <div className="px-3 sm:px-4 md:px-5 py-2 sm:py-3 mx-3 sm:mx-4 md:mx-5 mb-2 sm:mb-3 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start gap-1.5 sm:gap-2">
+            <XCircle size={14} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-red-500 mt-0.5 shrink-0" />
+            <div><p className="text-[11px] sm:text-[12px] md:text-[13px] font-medium text-red-700">Download Failed</p><p className="text-[10px] sm:text-[11px] md:text-[12px] text-red-600 mt-0.5">{downloadError}</p>
+              <button onClick={() => setDownloadError(null)} className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] md:text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
             </div>
           </div>
         </div>
@@ -2202,20 +2349,20 @@ function ReportCardWrapper({ icon, iconBg, title, subtitle, badge, onDownload, d
 
 function ReportHeader({ title, user, savedReport }) {
   return (
-    <div className="border-b border-slate-200 pb-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="border-b border-slate-200 pb-4 sm:pb-5 md:pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 mb-1">{title}</h1>
-          <div className="flex items-center gap-4 mt-3">
-            <div><p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient Name</p><p className="text-[15px] font-semibold text-slate-800">{user?.name || "N/A"}</p></div>
-            <div className="w-px h-8 bg-slate-200" />
-            <div><p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Email</p><p className="text-[14px] text-slate-700">{user?.email || "N/A"}</p></div>
-            {user?.id && <><div className="w-px h-8 bg-slate-200" /><div><p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p><p className="text-[14px] text-slate-700">#{user.id}</p></div></>}
+          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 mb-1">{title}</h1>
+          <div className="flex flex-col xs:flex-row xs:flex-wrap xs:items-center gap-2 xs:gap-3 sm:gap-4 mt-2 sm:mt-3">
+            <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient Name</p><p className="text-[13px] sm:text-[14px] md:text-[15px] font-semibold text-slate-800">{user?.name || "N/A"}</p></div>
+            <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
+            <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Email</p><p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700">{user?.email || "N/A"}</p></div>
+            {user?.id && <><div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" /><div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p><p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700">#{user.id}</p></div></>}
           </div>
         </div>
-        <div className="text-right shrink-0">
-          {savedReport?.completed_at && <div><p className="text-[11px] font-medium text-slate-500 uppercase tracking-wide">Assessment Date</p><p className="text-[14px] font-semibold text-slate-700">{new Date(savedReport.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p></div>}
-          {savedReport?.status && <div className="mt-2"><StatusBadge status={savedReport.status} /></div>}
+        <div className="text-left sm:text-right shrink-0">
+          {savedReport?.completed_at && <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Assessment Date</p><p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-700">{new Date(savedReport.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p></div>}
+          {savedReport?.status && <div className="mt-1.5 sm:mt-2"><StatusBadge status={savedReport.status} /></div>}
         </div>
       </div>
     </div>
@@ -2225,15 +2372,15 @@ function ReportHeader({ title, user, savedReport }) {
 function ReportInfo({ savedReport }) {
   if (!savedReport) return null;
   return (
-    <div className="border-t border-slate-200 pt-6">
-      <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Report Information</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div className="border-t border-slate-200 pt-4 sm:pt-5 md:pt-6">
+      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Report Information</h2>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
         {savedReport.id && <InfoItem label="Report ID" value={`#${savedReport.id}`} />}
         {savedReport.user_id && <InfoItem label="User ID" value={`#${savedReport.user_id}`} />}
         {savedReport.package_id && <InfoItem label="Package ID" value={`#${savedReport.package_id}`} />}
         {savedReport.subheading_id && <InfoItem label="Section ID" value={`#${savedReport.subheading_id}`} />}
       </div>
-      <div className="grid grid-cols-2 gap-4 mt-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3">
         {savedReport.created_at && <InfoItem label="Created At" value={new Date(savedReport.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />}
         {savedReport.updated_at && <InfoItem label="Last Updated" value={new Date(savedReport.updated_at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />}
       </div>
@@ -2243,20 +2390,20 @@ function ReportInfo({ savedReport }) {
 
 function ReportFooter() {
   return (
-    <div className="border-t border-slate-200 pt-4 text-center">
-      <p className="text-[11px] text-slate-400">Generated on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform</p>
+    <div className="border-t border-slate-200 pt-3 sm:pt-4 text-center">
+      <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">Generated on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform</p>
     </div>
   );
 }
 
 function AssessmentBadge({ label, color }) {
-  return <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${color}`}>{label}</span>;
+  return <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded ${color}`}>{label}</span>;
 }
 
 function StatusBadge({ status }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[12px] font-medium border shrink-0 ${status === "completed" ? "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" : "bg-[#E85720]/10 text-[#E85720] border-[#E85720]/20"}`}>
-      {status === "completed" ? <CheckCircle2 size={13} /> : <Clock size={13} />}
+    <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-[12px] font-medium border shrink-0 ${status === "completed" ? "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" : "bg-[#E85720]/10 text-[#E85720] border-[#E85720]/20"}`}>
+      {status === "completed" ? <CheckCircle2 size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" /> : <Clock size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" />}
       {status === "completed" ? "Completed" : "In progress"}
     </span>
   );
@@ -2264,7 +2411,7 @@ function StatusBadge({ status }) {
 
 function CutoffBadge({ score, cutoff, isAboveCutoff }) {
   if (cutoff === undefined || cutoff === null) {
-    return <span className="text-[10px] text-slate-400">—</span>;
+    return <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">—</span>;
   }
   const isHigh = !!isAboveCutoff;
   const diff = score - cutoff;
@@ -2275,7 +2422,7 @@ function CutoffBadge({ score, cutoff, isAboveCutoff }) {
 
   return (
     <span
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold whitespace-nowrap ${
+      className={`inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] md:text-[10px] font-semibold whitespace-nowrap ${
         isHigh ? "bg-[#E85720]/10 text-[#E85720]" : "bg-[#1F6D48]/10 text-[#1F6D48]"
       }`}
       title={`Score ${score}, cutoff ${cutoff}`}
@@ -2287,18 +2434,18 @@ function CutoffBadge({ score, cutoff, isAboveCutoff }) {
 
 function InfoCard({ label, value, color }) {
   return (
-    <div className={`rounded-xl bg-gradient-to-br from-${color}/10 to-${color}/5 border border-${color}/20 px-5 py-4`}>
-      <p className={`text-[11px] font-medium text-${color}/70 uppercase tracking-wide mb-1`}>{label}</p>
-      <p className={`text-[24px] font-bold text-${color}`}>{value}</p>
+    <div className={`rounded-lg sm:rounded-xl bg-gradient-to-br from-${color}/10 to-${color}/5 border border-${color}/20 px-4 sm:px-5 py-3 sm:py-4`}>
+      <p className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium text-${color}/70 uppercase tracking-wide mb-0.5 sm:mb-1`}>{label}</p>
+      <p className={`text-[18px] sm:text-[22px] md:text-[24px] font-bold text-${color}`}>{value}</p>
     </div>
   );
 }
 
 function InfoItem({ label, value }) {
   return (
-    <div className="rounded-lg bg-slate-50 border border-slate-100 px-4 py-3">
-      <p className="text-[10px] font-medium text-slate-500 uppercase tracking-wide">{label}</p>
-      <p className="text-[13px] font-semibold text-slate-700 mt-0.5">{value}</p>
+    <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 sm:px-4 py-2.5 sm:py-3">
+      <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">{label}</p>
+      <p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-700 mt-0.5">{value}</p>
     </div>
   );
 }
@@ -2306,10 +2453,10 @@ function InfoItem({ label, value }) {
 function TraitsList({ traits }) {
   return (
     <div>
-      <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Personality Traits</h2>
-      <div className="flex flex-wrap gap-2">
+      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Personality Traits</h2>
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         {traits.map((trait) => (
-          <span key={trait} className="inline-flex items-center px-3 py-1.5 rounded-full text-[12.5px] font-medium bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 text-slate-700 capitalize shadow-sm">{trait}</span>
+          <span key={trait} className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-medium bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 text-slate-700 capitalize shadow-sm">{trait}</span>
         ))}
       </div>
     </div>
@@ -2319,9 +2466,9 @@ function TraitsList({ traits }) {
 function SummaryBox({ summary }) {
   return (
     <div>
-      <h2 className="text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3">Summary</h2>
-      <div className="rounded-xl bg-gradient-to-r from-slate-50 to-[#E85720]/5 border border-slate-200 px-5 py-4">
-        <p className="text-[14px] text-slate-700 leading-relaxed">{summary}</p>
+      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Summary</h2>
+      <div className="rounded-lg sm:rounded-xl bg-gradient-to-r from-slate-50 to-[#E85720]/5 border border-slate-200 px-4 sm:px-5 py-3 sm:py-4">
+        <p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700 leading-relaxed">{summary}</p>
       </div>
     </div>
   );
@@ -2403,13 +2550,13 @@ function EpiQuadrantWheel({ eScore, nScore, maxScore = 24, personalityType }) {
 function EpiScoreBar({ label, score, max, percentage, color }) {
   const pct = percentage !== undefined && percentage !== null ? percentage : 0;
   return (
-    <div className="rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
-      <div className="flex items-center justify-between mb-1.5">
-        <span className="text-[11.5px] font-medium text-slate-500">{label}</span>
-        <span className="text-[13px] font-semibold text-slate-800">{score ?? "—"}{max !== undefined && max !== null && <span className="text-slate-400 font-normal">/{max}</span>}</span>
+    <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-3 sm:px-4 py-2.5 sm:py-3">
+      <div className="flex items-center justify-between mb-1 sm:mb-1.5">
+        <span className="text-[9px] sm:text-[10px] md:text-[11.5px] font-medium text-slate-500">{label}</span>
+        <span className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{score ?? "—"}{max !== undefined && max !== null && <span className="text-slate-400 font-normal">/{max}</span>}</span>
       </div>
-      <div className="h-1.5 rounded-full bg-slate-200 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: color }} /></div>
-      {percentage !== undefined && percentage !== null && <p className="text-[10.5px] text-slate-400 mt-1 text-right">{pct}%</p>}
+      <div className="h-1 sm:h-1.5 rounded-full bg-slate-200 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: color }} /></div>
+      {percentage !== undefined && percentage !== null && <p className="text-[8px] sm:text-[9px] md:text-[10.5px] text-slate-400 mt-0.5 sm:mt-1 text-right">{pct}%</p>}
     </div>
   );
 }
@@ -2422,40 +2569,40 @@ function ProgressPill({ percentage, wide }) {
   const color = pct >= 100 ? "#1F6D48" : pct > 0 ? "#E85720" : "#CBD5E1";
   return (
     <div className={wide ? "w-full" : "w-full"}>
-      <div className="flex items-center justify-between mb-1"><span className="text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span></div>
-      <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} /></div>
+      <div className="flex items-center justify-between mb-0.5 sm:mb-1"><span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span></div>
+      <div className="h-1 sm:h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} /></div>
     </div>
   );
 }
 
 function StatusIcon({ status }) {
-  if (status === "completed") return <span className="w-8 h-8 rounded-lg bg-[#1F6D48]/10 flex items-center justify-center shrink-0"><CheckCircle2 size={16} className="text-[#1F6D48]" /></span>;
-  if (status === "in_progress") return <span className="w-8 h-8 rounded-lg bg-[#E85720]/10 flex items-center justify-center shrink-0"><Clock size={16} className="text-[#E85720]" /></span>;
-  return <span className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Circle size={16} className="text-slate-400" /></span>;
+  if (status === "completed") return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#1F6D48]/10 flex items-center justify-center shrink-0"><CheckCircle2 size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-[#1F6D48]" /></span>;
+  if (status === "in_progress") return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#E85720]/10 flex items-center justify-center shrink-0"><Clock size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-[#E85720]" /></span>;
+  return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Circle size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-slate-400" /></span>;
 }
 
 function MiniStat({ label, value }) {
-  return <div className="text-right"><p className="text-[13px] font-semibold text-slate-800">{value}</p><p className="text-[11px] text-slate-400">{label}</p></div>;
+  return <div className="text-right"><p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{value}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">{label}</p></div>;
 }
 
 function SummaryStat({ label, value, valueClass = "text-slate-800" }) {
-  return <div className="rounded-xl bg-slate-50 px-3 py-2.5 text-center"><p className={`text-[16px] font-semibold ${valueClass}`}>{value}</p><p className="text-[11px] text-slate-500 mt-0.5">{label}</p></div>;
+  return <div className="rounded-lg sm:rounded-xl bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5 text-center"><p className={`text-[13px] sm:text-[15px] md:text-[16px] font-semibold ${valueClass}`}>{value}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-0.5">{label}</p></div>;
 }
 
 function AnswerChip({ label, value, tone }) {
   const toneClass = { success: "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20", wrong: "bg-rose-50 text-rose-600 border-rose-200", neutral: "bg-slate-100 text-slate-500 border-slate-200", muted: "bg-slate-50 text-slate-500 border-slate-200" }[tone];
   const displayValue = formatEpiValue(value);
-  return <span className={`inline-flex items-center gap-1 text-[11.5px] font-medium px-2 py-0.5 rounded-md border ${toneClass}`}><span className="opacity-70">{label}:</span> {displayValue}</span>;
+  return <span className={`inline-flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] md:text-[11.5px] font-medium px-1.5 sm:px-2 py-0.5 rounded-md border ${toneClass}`}><span className="opacity-70">{label}:</span> {displayValue}</span>;
 }
 
 function LoadingState({ label }) {
-  return <div className="flex items-center justify-center py-20"><div className="flex flex-col items-center gap-3"><div className="w-9 h-9 border-[3px] border-[#2F4479]/15 border-t-[#2F4479] rounded-full animate-spin" /><p className="text-slate-500 text-[13px] font-medium">{label}</p></div></div>;
+  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 border-[2px] sm:border-[3px] border-[#2F4479]/15 border-t-[#2F4479] rounded-full animate-spin" /><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px] font-medium">{label}</p></div></div>;
 }
 
 function ErrorState({ message, onRetry }) {
-  return <div className="flex items-center justify-center py-20"><div className="flex flex-col items-center gap-3"><div className="p-3.5 rounded-full bg-rose-50"><XCircle size={28} className="text-rose-500" /></div><p className="text-slate-700 font-medium text-[14px]">Something went wrong</p><p className="text-slate-500 text-[13px]">{message}</p>{onRetry && <button onClick={onRetry} className="mt-1 px-4 py-2 bg-[#2F4479] text-white rounded-xl hover:bg-[#263a68] transition-colors text-[13px] font-medium">Try Again</button>}</div></div>;
+  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="p-2.5 sm:p-3 md:p-3.5 rounded-full bg-rose-50"><XCircle size={22} className="sm:w-[26px] sm:h-[26px] md:w-[28px] md:h-[28px] text-rose-500" /></div><p className="text-slate-700 font-medium text-[12px] sm:text-[13px] md:text-[14px]">Something went wrong</p><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px]">{message}</p>{onRetry && <button onClick={onRetry} className="mt-1 px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2F4479] text-white rounded-lg sm:rounded-xl hover:bg-[#263a68] transition-colors text-[11px] sm:text-[12px] md:text-[13px] font-medium">Try Again</button>}</div></div>;
 }
 
 function EmptyState({ icon, title, subtitle }) {
-  return <div className="flex items-center justify-center py-20"><div className="flex flex-col items-center gap-3"><div className="p-3.5 rounded-full bg-slate-50">{icon}</div><p className="text-slate-700 font-medium text-[14px]">{title}</p><p className="text-slate-500 text-[13px]">{subtitle}</p></div></div>;
+  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="p-2.5 sm:p-3 md:p-3.5 rounded-full bg-slate-50">{icon}</div><p className="text-slate-700 font-medium text-[12px] sm:text-[13px] md:text-[14px]">{title}</p><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px]">{subtitle}</p></div></div>;
 }

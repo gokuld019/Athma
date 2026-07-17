@@ -17,6 +17,13 @@ import {
   CreditCard,
   ClipboardCheck,
   AlertTriangle,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Users,
+  UserCheck,
+  UserX,
+  ClipboardList,
 } from "lucide-react";
 
 const API_BASE = "https://api.crazystory.in/api/admin/patients";
@@ -45,13 +52,13 @@ function clearSessionAndRedirect(router) {
 function StatusBadge({ active }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium ${
+      className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-[11.5px] font-medium whitespace-nowrap ${
         active
           ? "bg-emerald-50 text-emerald-600 ring-1 ring-emerald-200"
           : "bg-rose-50 text-rose-600 ring-1 ring-rose-200"
       }`}
     >
-      <span className={`w-1.5 h-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-rose-500"}`} />
+      <span className={`w-1 sm:w-1.5 h-1 sm:h-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-rose-500"}`} />
       {active ? "Active" : "Inactive"}
     </span>
   );
@@ -60,7 +67,7 @@ function StatusBadge({ active }) {
 function AssessmentBadge({ completed }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-medium ${
+      className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-[11.5px] font-medium whitespace-nowrap ${
         completed
           ? "bg-indigo-50 text-indigo-600 ring-1 ring-indigo-200"
           : "bg-amber-50 text-amber-600 ring-1 ring-amber-200"
@@ -86,7 +93,7 @@ function Avatar({ name }) {
   const idx = (name?.charCodeAt(0) || 0) % palette.length;
 
   return (
-    <div className={`w-9 h-9 rounded-full ${palette[idx]} flex items-center justify-center text-white text-[12px] font-semibold shrink-0`}>
+    <div className={`w-8 h-8 sm:w-9 sm:h-9 rounded-full ${palette[idx]} flex items-center justify-center text-white text-[11px] sm:text-[12px] font-semibold shrink-0`}>
       {initials}
     </div>
   );
@@ -125,17 +132,17 @@ function RowActions({ patient, onView, onToggleStatus, onDelete, togglingId, del
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 mt-1 w-44 bg-white rounded-xl shadow-lg ring-1 ring-slate-200 py-1.5 z-20 overflow-hidden">
+          <div className="absolute right-0 mt-1 w-40 sm:w-44 bg-white rounded-xl shadow-lg ring-1 ring-slate-200 py-1 sm:py-1.5 z-20 overflow-hidden">
             <button
               onClick={() => { setOpen(false); onView(patient); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-slate-700 hover:bg-slate-50 transition-colors"
+              className="w-full flex items-center gap-2 sm:gap-2.5 px-3 sm:px-3.5 py-2 sm:py-2.5 text-[12px] sm:text-[13px] text-slate-700 hover:bg-slate-50 transition-colors"
             >
               <Eye size={14} /> View details
             </button>
             <button
               disabled={isToggling}
               onClick={() => { setOpen(false); onToggleStatus(patient); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-2 sm:gap-2.5 px-3 sm:px-3.5 py-2 sm:py-2.5 text-[12px] sm:text-[13px] text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
               {isToggling ? <Loader2 size={14} className="animate-spin" /> : <Power size={14} />}
               {patient.is_active ? "Deactivate" : "Activate"}
@@ -144,7 +151,7 @@ function RowActions({ patient, onView, onToggleStatus, onDelete, togglingId, del
             <button
               disabled={isDeleting}
               onClick={() => { setOpen(false); onDelete(patient); }}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
+              className="w-full flex items-center gap-2 sm:gap-2.5 px-3 sm:px-3.5 py-2 sm:py-2.5 text-[12px] sm:text-[13px] text-rose-600 hover:bg-rose-50 transition-colors disabled:opacity-50"
             >
               {isDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
               Delete
@@ -164,27 +171,27 @@ function DeleteConfirmModal({ patient, onCancel, onConfirm, deleting }) {
   if (!patient) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm px-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
-        <div className="w-11 h-11 rounded-full bg-rose-50 flex items-center justify-center mb-4">
-          <AlertTriangle size={20} className="text-rose-500" />
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-[90%] sm:max-w-sm p-5 sm:p-6">
+        <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-rose-50 flex items-center justify-center mb-3 sm:mb-4">
+          <AlertTriangle size={18} className="sm:w-[20px] sm:h-[20px] text-rose-500" />
         </div>
-        <h3 className="text-[16px] font-semibold text-slate-900 mb-1.5">Delete patient?</h3>
-        <p className="text-[13.5px] text-slate-500 leading-relaxed mb-6">
+        <h3 className="text-[15px] sm:text-[16px] font-semibold text-slate-900 mb-1 sm:mb-1.5">Delete patient?</h3>
+        <p className="text-[12.5px] sm:text-[13.5px] text-slate-500 leading-relaxed mb-5 sm:mb-6">
           This will permanently delete <span className="font-medium text-slate-700">{patient.name}</span>'s
           record, including their payment and assessment history. This action cannot be undone.
         </p>
-        <div className="flex gap-3">
+        <div className="flex gap-2 sm:gap-3">
           <button
             onClick={onCancel}
             disabled={deleting}
-            className="flex-1 px-4 py-2.5 rounded-xl text-[13.5px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
+            className="flex-1 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[12.5px] sm:text-[13.5px] font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             onClick={onConfirm}
             disabled={deleting}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-[13.5px] font-medium text-white bg-rose-500 hover:bg-rose-600 transition-colors disabled:opacity-50"
+            className="flex-1 flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2.5 rounded-xl text-[12.5px] sm:text-[13.5px] font-medium text-white bg-rose-500 hover:bg-rose-600 transition-colors disabled:opacity-50"
           >
             {deleting && <Loader2 size={14} className="animate-spin" />}
             Delete
@@ -240,40 +247,40 @@ function PatientDetailDrawer({ patientId, onClose, router }) {
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-white shadow-2xl overflow-y-auto">
-        <div className="sticky top-0 bg-white border-b border-slate-100 px-6 py-4 flex items-center justify-between z-10">
-          <h3 className="text-[15px] font-semibold text-slate-900">Patient details</h3>
+      <div className="relative w-full max-w-[95%] sm:max-w-md h-full bg-white shadow-2xl overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-slate-100 px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between z-10">
+          <h3 className="text-[14px] sm:text-[15px] font-semibold text-slate-900">Patient details</h3>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500">
-            <X size={17} />
+            <X size={16} className="sm:w-[17px] sm:h-[17px]" />
           </button>
         </div>
 
         {loading && (
-          <div className="flex flex-col items-center justify-center py-24 text-slate-400 gap-3">
-            <Loader2 size={22} className="animate-spin" />
-            <span className="text-[13px]">Loading patient…</span>
+          <div className="flex flex-col items-center justify-center py-20 sm:py-24 text-slate-400 gap-3">
+            <Loader2 size={20} className="animate-spin sm:w-[22px] sm:h-[22px]" />
+            <span className="text-[12px] sm:text-[13px]">Loading patient…</span>
           </div>
         )}
 
         {error && !loading && (
-          <div className="px-6 py-10 text-center">
-            <p className="text-[13.5px] text-rose-500">{error}</p>
+          <div className="px-4 sm:px-6 py-8 sm:py-10 text-center">
+            <p className="text-[12.5px] sm:text-[13.5px] text-rose-500">{error}</p>
           </div>
         )}
 
         {!loading && !error && p && (
-          <div className="px-6 py-6 space-y-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-full bg-teal-500 flex items-center justify-center text-white text-[18px] font-semibold">
+          <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-5 sm:space-y-6">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full bg-teal-500 flex items-center justify-center text-white text-[16px] sm:text-[18px] font-semibold">
                 {p.name?.slice(0, 2).toUpperCase()}
               </div>
               <div>
-                <h4 className="text-[16px] font-semibold text-slate-900">{p.name}</h4>
+                <h4 className="text-[15px] sm:text-[16px] font-semibold text-slate-900">{p.name}</h4>
                 <div className="mt-1"><StatusBadge active={p.is_active} /></div>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-2 sm:gap-3">
               <InfoRow icon={Mail} label="Email" value={p.email} />
               <InfoRow icon={Phone} label="Phone" value={p.phone} />
               <InfoRow icon={MapPin} label="Location" value={p.location || p.address} />
@@ -281,23 +288,23 @@ function PatientDetailDrawer({ patientId, onClose, router }) {
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <CreditCard size={14} className="text-slate-400" />
-                <h5 className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <CreditCard size={13} className="sm:w-[14px] sm:h-[14px] text-slate-400" />
+                <h5 className="text-[11.5px] sm:text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
                   Payments ({detail.payments?.total ?? 0})
                 </h5>
               </div>
               {detail.payments?.list?.length ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {detail.payments.list.map((pay) => (
-                    <div key={pay.id} className="flex items-center justify-between px-3.5 py-3 rounded-xl bg-slate-50 border border-slate-100">
-                      <div>
-                        <p className="text-[13px] font-medium text-slate-800">{pay.package_name}</p>
-                        <p className="text-[11.5px] text-slate-400 mt-0.5">{formatDate(pay.paid_at)}</p>
+                    <div key={pay.id} className="flex items-center justify-between px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-xl bg-slate-50 border border-slate-100">
+                      <div className="min-w-0 flex-1 mr-2">
+                        <p className="text-[12px] sm:text-[13px] font-medium text-slate-800 truncate">{pay.package_name}</p>
+                        <p className="text-[10.5px] sm:text-[11.5px] text-slate-400 mt-0.5">{formatDate(pay.paid_at)}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-[13px] font-semibold text-slate-900">₹{pay.amount}</p>
-                        <span className={`text-[10.5px] font-medium ${pay.status === "paid" ? "text-emerald-600" : "text-amber-600"}`}>
+                      <div className="text-right shrink-0">
+                        <p className="text-[12px] sm:text-[13px] font-semibold text-slate-900">₹{pay.amount}</p>
+                        <span className={`text-[10px] sm:text-[10.5px] font-medium ${pay.status === "paid" ? "text-emerald-600" : "text-amber-600"}`}>
                           {pay.status}
                         </span>
                       </div>
@@ -305,42 +312,42 @@ function PatientDetailDrawer({ patientId, onClose, router }) {
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-slate-400">No payments yet.</p>
+                <p className="text-[12px] sm:text-[13px] text-slate-400">No payments yet.</p>
               )}
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <ClipboardCheck size={14} className="text-slate-400" />
-                <h5 className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <ClipboardCheck size={13} className="sm:w-[14px] sm:h-[14px] text-slate-400" />
+                <h5 className="text-[11.5px] sm:text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
                   Assessments ({detail.assessments?.completed ?? 0}/{detail.assessments?.total ?? 0})
                 </h5>
               </div>
               {detail.assessments?.list?.length ? (
-                <div className="space-y-2">
+                <div className="space-y-1.5 sm:space-y-2">
                   {detail.assessments.list.map((a, i) => (
-                    <div key={i} className="px-3.5 py-3 rounded-xl bg-slate-50 border border-slate-100 text-[13px] text-slate-700">
+                    <div key={i} className="px-3 sm:px-3.5 py-2.5 sm:py-3 rounded-xl bg-slate-50 border border-slate-100 text-[12px] sm:text-[13px] text-slate-700">
                       {a.personality_type || "Assessment"} — {formatDate(a.completed_at)}
                     </div>
                   ))}
                 </div>
               ) : (
-                <p className="text-[13px] text-slate-400">No assessments completed.</p>
+                <p className="text-[12px] sm:text-[13px] text-slate-400">No assessments completed.</p>
               )}
             </div>
 
             <div>
-              <div className="flex items-center gap-2 mb-3">
-                <ClipboardCheck size={14} className="text-slate-400" />
-                <h5 className="text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
+              <div className="flex items-center gap-2 mb-2 sm:mb-3">
+                <ClipboardCheck size={13} className="sm:w-[14px] sm:h-[14px] text-slate-400" />
+                <h5 className="text-[11.5px] sm:text-[12.5px] font-semibold text-slate-500 uppercase tracking-wide">
                   Answers
                 </h5>
               </div>
-              <div className="flex items-center gap-4 px-3.5 py-3 rounded-xl bg-slate-50 border border-slate-100 text-[13px] text-slate-700">
-                <span>Total: <b>{detail.answers?.total ?? 0}</b></span>
-                <span className="text-emerald-600">Correct: <b>{detail.answers?.correct ?? 0}</b></span>
-                <span className="text-rose-500">Wrong: <b>{detail.answers?.wrong ?? 0}</b></span>
-                <span>Accuracy: <b>{detail.answers?.accuracy ?? 0}%</b></span>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+                <MiniStat label="Total" value={detail.answers?.total ?? 0} color="text-slate-700" />
+                <MiniStat label="Correct" value={detail.answers?.correct ?? 0} color="text-emerald-600" />
+                <MiniStat label="Wrong" value={detail.answers?.wrong ?? 0} color="text-rose-500" />
+                <MiniStat label="Accuracy" value={`${detail.answers?.accuracy ?? 0}%`} color="text-indigo-600" />
               </div>
             </div>
           </div>
@@ -352,14 +359,104 @@ function PatientDetailDrawer({ patientId, onClose, router }) {
 
 function InfoRow({ icon: Icon, label, value }) {
   return (
-    <div className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-100">
-      <span className="w-7 h-7 rounded-lg bg-white flex items-center justify-center shrink-0 text-slate-400 ring-1 ring-slate-100">
-        <Icon size={14} />
+    <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-slate-50 border border-slate-100">
+      <span className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-white flex items-center justify-center shrink-0 text-slate-400 ring-1 ring-slate-100">
+        <Icon size={13} className="sm:w-[14px] sm:h-[14px]" />
       </span>
       <div className="min-w-0">
-        <p className="text-[10.5px] text-slate-400 uppercase tracking-wide">{label}</p>
-        <p className="text-[13px] text-slate-800 font-medium truncate">{value || "—"}</p>
+        <p className="text-[10px] sm:text-[10.5px] text-slate-400 uppercase tracking-wide">{label}</p>
+        <p className="text-[12px] sm:text-[13px] text-slate-800 font-medium truncate">{value || "—"}</p>
       </div>
+    </div>
+  );
+}
+
+function MiniStat({ label, value, color }) {
+  return (
+    <div className="px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl bg-slate-50 border border-slate-100 text-center">
+      <p className={`text-[13px] sm:text-[14px] font-bold ${color}`}>{value}</p>
+      <p className="text-[10px] sm:text-[10.5px] text-slate-400 mt-0.5">{label}</p>
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------
+   Mobile Patient Card
+--------------------------------------------------------- */
+
+function MobilePatientCard({ patient, onView, onToggleStatus, onDelete, togglingId, deletingId }) {
+  const [showActions, setShowActions] = useState(false);
+
+  return (
+    <div className="bg-white rounded-xl border border-slate-100 p-3 sm:p-4 space-y-3">
+      <div className="flex items-start justify-between">
+        <div className="flex items-center gap-3 min-w-0">
+          <Avatar name={patient.name} />
+          <div className="min-w-0">
+            <p className="text-[13px] sm:text-[13.5px] font-medium text-slate-800 truncate">{patient.name}</p>
+            <p className="text-[11px] sm:text-[11.5px] text-slate-400">#{patient.id}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          <StatusBadge active={patient.is_active} />
+          <button
+            onClick={() => setShowActions(!showActions)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-slate-100 text-slate-500"
+          >
+            <MoreVertical size={16} />
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2 text-[11.5px] sm:text-[12px]">
+        <div>
+          <p className="text-slate-400 text-[10px] sm:text-[10.5px]">Email</p>
+          <p className="text-slate-600 truncate">{patient.email || "—"}</p>
+        </div>
+        <div>
+          <p className="text-slate-400 text-[10px] sm:text-[10.5px]">Phone</p>
+          <p className="text-slate-600 truncate">{patient.phone || "—"}</p>
+        </div>
+        <div>
+          <p className="text-slate-400 text-[10px] sm:text-[10.5px]">Payments</p>
+          <p className="text-slate-800 font-medium">₹{patient.payments?.total_amount ?? "0.00"}</p>
+        </div>
+        <div>
+          <p className="text-slate-400 text-[10px] sm:text-[10.5px]">Assessment</p>
+          <AssessmentBadge completed={patient.assessment?.completed} />
+        </div>
+        <div className="col-span-2">
+          <p className="text-slate-400 text-[10px] sm:text-[10.5px]">Registered</p>
+          <p className="text-slate-500">{formatDate(patient.registered_at)}</p>
+        </div>
+      </div>
+
+      {showActions && (
+        <div className="flex gap-2 pt-2 border-t border-slate-50">
+          <button
+            onClick={() => { setShowActions(false); onView(patient); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-50 text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <Eye size={13} /> View
+          </button>
+          <button
+            disabled={togglingId === patient.id}
+            onClick={() => { setShowActions(false); onToggleStatus(patient); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-slate-50 text-[12px] font-medium text-slate-600 hover:bg-slate-100 transition-colors disabled:opacity-50"
+          >
+            {togglingId === patient.id ? <Loader2 size={13} className="animate-spin" /> : <Power size={13} />}
+            {patient.is_active ? "Deactivate" : "Activate"}
+          </button>
+          <button
+            disabled={deletingId === patient.id}
+            onClick={() => { setShowActions(false); onDelete(patient); }}
+            className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg bg-rose-50 text-[12px] font-medium text-rose-600 hover:bg-rose-100 transition-colors disabled:opacity-50"
+          >
+            {deletingId === patient.id ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+            Delete
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -378,6 +475,7 @@ export default function PatientsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState(null);
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const [viewingId, setViewingId] = useState(null);
   const [togglingId, setTogglingId] = useState(null);
@@ -468,74 +566,103 @@ export default function PatientsPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const activeCount = patients.filter((p) => p.is_active).length;
+  const inactiveCount = patients.filter((p) => !p.is_active).length;
+  const assessedCount = patients.filter((p) => p.assessment?.completed).length;
+
   return (
-<div className="p-2 lg:p-4 bg-slate-50 min-h-full">    
+    <div className="p-2 sm:p-3 md:p-4 lg:p-5 bg-[#F4F6F8] min-h-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4 mb-4 sm:mb-5 md:mb-6">
         <div>
-          <h1 className="text-[22px] font-semibold text-slate-900">Patients</h1>
-          <p className="text-[13.5px] text-slate-500 mt-0.5">
+          <h1 className="text-xl sm:text-[22px] md:text-2xl font-bold text-slate-900">Patients</h1>
+          <p className="text-[11px] sm:text-[12px] md:text-[13.5px] text-slate-500 mt-0.5">
             {meta?.total ?? 0} total patients registered
           </p>
         </div>
+        <button
+          onClick={() => setShowMobileFilters(!showMobileFilters)}
+          className="sm:hidden flex items-center gap-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-[12px] font-medium text-slate-600 w-fit"
+        >
+          <Filter size={14} />
+          Filters
+        </button>
       </div>
 
       {/* Stat strip */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Patients" value={meta?.total ?? 0} accent="bg-teal-500" />
-        <StatCard label="Active" value={patients.filter((p) => p.is_active).length} accent="bg-emerald-500" />
-        <StatCard label="Inactive" value={patients.filter((p) => !p.is_active).length} accent="bg-rose-500" />
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 md:gap-4 mb-4 sm:mb-5 md:mb-6">
+        <StatCard 
+          label="Total Patients" 
+          value={meta?.total ?? 0} 
+          icon={<Users size={15} className="sm:w-[16px] sm:h-[16px] text-white" />}
+          accent="bg-teal-500" 
+        />
+        <StatCard 
+          label="Active" 
+          value={activeCount} 
+          icon={<UserCheck size={15} className="sm:w-[16px] sm:h-[16px] text-white" />}
+          accent="bg-emerald-500" 
+        />
+        <StatCard 
+          label="Inactive" 
+          value={inactiveCount} 
+          icon={<UserX size={15} className="sm:w-[16px] sm:h-[16px] text-white" />}
+          accent="bg-rose-500" 
+        />
         <StatCard
-          label="Assessments Done"
-          value={patients.filter((p) => p.assessment?.completed).length}
+          label="Assessed"
+          value={assessedCount}
+          icon={<ClipboardList size={15} className="sm:w-[16px] sm:h-[16px] text-white" />}
           accent="bg-indigo-500"
         />
       </div>
 
       {/* Filters bar */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 mb-4 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, phone…"
-            className="w-full pl-9 pr-3 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[13.5px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all"
-          />
-        </div>
+      <div className={`bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-4 mb-3 sm:mb-4 space-y-3 sm:space-y-0 ${showMobileFilters ? 'block' : 'hidden sm:block'}`}>
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center sm:justify-between">
+          <div className="relative flex-1 max-w-full sm:max-w-sm">
+            <Search size={14} className="sm:w-[15px] sm:h-[15px] absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name, email, phone…"
+              className="w-full pl-9 pr-3 py-2 sm:py-2.5 rounded-lg sm:rounded-xl bg-slate-50 border border-slate-200 text-[12px] sm:text-[13px] md:text-[13.5px] text-slate-700 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-400 transition-all"
+            />
+          </div>
 
-        <div className="flex items-center gap-2">
-          {["all", "active", "inactive"].map((f) => (
-            <button
-              key={f}
-              onClick={() => setStatusFilter(f)}
-              className={`px-3.5 py-2 rounded-lg text-[12.5px] font-medium capitalize transition-colors ${
-                statusFilter === f
-                  ? "bg-teal-900 text-white"
-                  : "bg-slate-50 text-slate-500 hover:bg-slate-100"
-              }`}
-            >
-              {f}
-            </button>
-          ))}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {["all", "active", "inactive"].map((f) => (
+              <button
+                key={f}
+                onClick={() => setStatusFilter(f)}
+                className={`px-3 sm:px-3.5 py-2 rounded-lg text-[11px] sm:text-[12px] md:text-[12.5px] font-medium capitalize transition-colors ${
+                  statusFilter === f
+                    ? "bg-teal-900 text-white"
+                    : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                }`}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+      {/* Content */}
+      <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
         {loading && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
-            <Loader2 size={22} className="animate-spin" />
-            <span className="text-[13px]">Loading patients…</span>
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-slate-400 gap-3">
+            <Loader2 size={20} className="animate-spin sm:w-[22px] sm:h-[22px]" />
+            <span className="text-[12px] sm:text-[13px]">Loading patients…</span>
           </div>
         )}
 
         {error && !loading && (
-          <div className="flex flex-col items-center justify-center py-20 gap-2">
-            <p className="text-[13.5px] text-rose-500">{error}</p>
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20 gap-2">
+            <p className="text-[12.5px] sm:text-[13.5px] text-rose-500">{error}</p>
             <button
               onClick={() => fetchPatients(page)}
-              className="text-[12.5px] text-teal-600 font-medium hover:underline"
+              className="text-[11.5px] sm:text-[12.5px] text-teal-600 font-medium hover:underline"
             >
               Try again
             </button>
@@ -543,98 +670,148 @@ export default function PatientsPage() {
         )}
 
         {!loading && !error && filtered.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <p className="text-[13.5px]">No patients found.</p>
+          <div className="flex flex-col items-center justify-center py-16 sm:py-20 text-slate-400">
+            <p className="text-[12.5px] sm:text-[13.5px]">No patients found.</p>
           </div>
         )}
 
         {!loading && !error && filtered.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="border-b border-slate-100 bg-slate-50/60">
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Patient</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Contact</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Location</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Payments</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Assessment</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Status</th>
-                  <th className="px-5 py-3 text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Registered</th>
-                  <th className="px-5 py-3"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <Avatar name={p.name} />
-                        <div className="min-w-0">
-                          <p className="text-[13.5px] font-medium text-slate-800 truncate">{p.name}</p>
-                          <p className="text-[11.5px] text-slate-400">#{p.id}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="text-[12.5px] text-slate-600">{p.email}</p>
-                      <p className="text-[11.5px] text-slate-400">{p.phone}</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-[12.5px] text-slate-600">{p.location || "—"}</span>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <p className="text-[13px] font-medium text-slate-800">₹{p.payments?.total_amount ?? "0.00"}</p>
-                      <p className="text-[11.5px] text-slate-400">{p.payments?.total_paid ?? 0} payment(s)</p>
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <AssessmentBadge completed={p.assessment?.completed} />
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <StatusBadge active={p.is_active} />
-                    </td>
-                    <td className="px-5 py-3.5">
-                      <span className="text-[12.5px] text-slate-500">{formatDate(p.registered_at)}</span>
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <RowActions
-                        patient={p}
-                        onView={(pt) => setViewingId(pt.id)}
-                        onToggleStatus={handleToggleStatus}
-                        onDelete={(pt) => setDeleteTarget(pt)}
-                        togglingId={togglingId}
-                        deletingId={deletingId}
-                      />
-                    </td>
+          <>
+            {/* Desktop Table - hidden on mobile */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="border-b border-slate-100 bg-slate-50/60">
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Patient</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Contact</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide hidden lg:table-cell">Location</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Payments</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Assessment</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide">Status</th>
+                    <th className="px-4 lg:px-5 py-3 text-[10px] sm:text-[11px] font-semibold text-slate-400 uppercase tracking-wide hidden xl:table-cell">Registered</th>
+                    <th className="px-4 lg:px-5 py-3"></th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {filtered.map((p) => (
+                    <tr key={p.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 transition-colors">
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5">
+                        <div className="flex items-center gap-2 sm:gap-3">
+                          <Avatar name={p.name} />
+                          <div className="min-w-0">
+                            <p className="text-[12px] sm:text-[13px] md:text-[13.5px] font-medium text-slate-800 truncate">{p.name}</p>
+                            <p className="text-[10px] sm:text-[11px] md:text-[11.5px] text-slate-400">#{p.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5">
+                        <p className="text-[11px] sm:text-[12px] md:text-[12.5px] text-slate-600 truncate max-w-[150px] lg:max-w-[200px]">{p.email}</p>
+                        <p className="text-[10px] sm:text-[11px] md:text-[11.5px] text-slate-400">{p.phone || "—"}</p>
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5 hidden lg:table-cell">
+                        <span className="text-[11px] sm:text-[12px] md:text-[12.5px] text-slate-600">{p.location || "—"}</span>
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5">
+                        <p className="text-[12px] sm:text-[13px] font-medium text-slate-800">₹{p.payments?.total_amount ?? "0.00"}</p>
+                        <p className="text-[10px] sm:text-[11px] md:text-[11.5px] text-slate-400">{p.payments?.total_paid ?? 0} payment(s)</p>
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5">
+                        <AssessmentBadge completed={p.assessment?.completed} />
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5">
+                        <StatusBadge active={p.is_active} />
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5 hidden xl:table-cell">
+                        <span className="text-[11px] sm:text-[12px] md:text-[12.5px] text-slate-500">{formatDate(p.registered_at)}</span>
+                      </td>
+                      <td className="px-4 lg:px-5 py-3 sm:py-3.5 text-right">
+                        <RowActions
+                          patient={p}
+                          onView={(pt) => setViewingId(pt.id)}
+                          onToggleStatus={handleToggleStatus}
+                          onDelete={(pt) => setDeleteTarget(pt)}
+                          togglingId={togglingId}
+                          deletingId={deletingId}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Cards - visible only on mobile */}
+            <div className="md:hidden p-3 sm:p-4 space-y-3">
+              {filtered.map((patient) => (
+                <MobilePatientCard
+                  key={patient.id}
+                  patient={patient}
+                  onView={(pt) => setViewingId(pt.id)}
+                  onToggleStatus={handleToggleStatus}
+                  onDelete={(pt) => setDeleteTarget(pt)}
+                  togglingId={togglingId}
+                  deletingId={deletingId}
+                />
+              ))}
+            </div>
+          </>
         )}
 
         {/* Pagination */}
         {meta && meta.last_page > 1 && (
-          <div className="flex items-center justify-between px-5 py-3.5 border-t border-slate-100">
-            <p className="text-[12px] text-slate-400">
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-3 sm:px-4 md:px-5 py-3 sm:py-3.5 border-t border-slate-100">
+            <p className="text-[11px] sm:text-[12px] text-slate-400 text-center sm:text-left">
               Showing {meta.from}-{meta.to} of {meta.total}
             </p>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               <button
                 disabled={page <= 1}
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
-                className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-[12px] md:text-[12.5px] font-medium bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
               >
-                Previous
+                <ChevronLeft size={14} className="sm:w-[15px] sm:h-[15px]" />
+                <span className="hidden sm:inline">Previous</span>
               </button>
-              <span className="text-[12.5px] text-slate-500">
+              
+              <div className="hidden sm:flex items-center gap-1">
+                {Array.from({ length: Math.min(5, meta.last_page) }, (_, i) => {
+                  let pageNum;
+                  if (meta.last_page <= 5) {
+                    pageNum = i + 1;
+                  } else if (page <= 3) {
+                    pageNum = i + 1;
+                  } else if (page >= meta.last_page - 2) {
+                    pageNum = meta.last_page - 4 + i;
+                  } else {
+                    pageNum = page - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-[12px] font-medium transition-colors ${
+                        page === pageNum
+                          ? "bg-teal-900 text-white"
+                          : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <span className="text-[11px] sm:text-[12px] md:text-[12.5px] text-slate-500 sm:hidden">
                 Page {meta.current_page} of {meta.last_page}
               </span>
+              
               <button
                 disabled={page >= meta.last_page}
                 onClick={() => setPage((p) => p + 1)}
-                className="px-3 py-1.5 rounded-lg text-[12.5px] font-medium bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
+                className="flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-[12px] md:text-[12.5px] font-medium bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40 transition-colors"
               >
-                Next
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight size={14} className="sm:w-[15px] sm:h-[15px]" />
               </button>
             </div>
           </div>
@@ -655,27 +832,16 @@ export default function PatientsPage() {
   );
 }
 
-function StatCard({ label, value, accent }) {
+function StatCard({ label, value, icon, accent }) {
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex items-center gap-3.5">
-      <span className={`w-10 h-10 rounded-xl ${accent} flex items-center justify-center shrink-0`}>
-        <Users4 />
+    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-4 flex items-center gap-2.5 sm:gap-3 md:gap-3.5">
+      <span className={`w-8 h-8 sm:w-9 md:w-10 sm:h-9 md:h-10 rounded-lg sm:rounded-xl ${accent} flex items-center justify-center shrink-0`}>
+        {icon}
       </span>
-      <div>
-        <p className="text-[19px] font-semibold text-slate-900 leading-none">{value}</p>
-        <p className="text-[11.5px] text-slate-400 mt-1">{label}</p>
+      <div className="min-w-0">
+        <p className="text-base sm:text-lg md:text-[19px] font-bold text-slate-900 leading-none">{value}</p>
+        <p className="text-[10px] sm:text-[11px] md:text-[11.5px] text-slate-400 mt-1 truncate">{label}</p>
       </div>
     </div>
-  );
-}
-
-function Users4() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
   );
 }

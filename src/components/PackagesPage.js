@@ -1,13 +1,10 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   Plus,
-  Pencil,
-  Trash2,
   ChevronRight,
   ChevronLeft,
-  X,
   FileQuestion,
   Clock,
   IndianRupee,
@@ -18,307 +15,23 @@ import {
   Loader2,
   ToggleLeft,
   ToggleRight,
-  Download,
-  Upload,
-  Filter,
-  Layers,
+  Eye,
+  X,
 } from "lucide-react";
 
 const API_BASE_URL = "https://api.crazystory.in/api/admin";
 
-const ANSWER_OPTIONS = [
-  { value: "yes", label: "Yes" },
-  { value: "no", label: "No" },
-];
-
 const QUESTIONS_PER_PAGE = 6;
 
 // ============================================================
-// Response Modal
+// View Details Modal
 // ============================================================
-function ResponseModal({ response, onClose }) {
-  if (!response) return null;
-  const { status, message, data } = response;
+function ViewDetailsModal({ title, data, onClose }) {
+  if (!data) return null;
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-5">
-      <div className="bg-white rounded-2xl w-full max-w-[420px] p-6">
-        <div className="flex flex-col items-center text-center mb-5">
-          {status === "success" ? (
-            <span className="w-14 h-14 rounded-full bg-emerald-50 flex items-center justify-center mb-3">
-              <CheckCircle2 size={26} className="text-emerald-500" />
-            </span>
-          ) : (
-            <span className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mb-3">
-              <XCircle size={26} className="text-rose-500" />
-            </span>
-          )}
-          <h3 className="font-brand text-lg font-bold text-teal-900">
-            {status === "success" ? "Success" : "Error"}
-          </h3>
-          <p className="text-[13px] text-ink-soft mt-1">{message || "Operation completed."}</p>
-        </div>
-
-        {data && (
-          <div className="bg-[#F7F8F6] rounded-[12px] px-4 py-3 mb-5 max-h-[300px] overflow-y-auto">
-            {Object.entries(data).map(([key, value]) => {
-              if (typeof value === "object" && value !== null) return null;
-              return (
-                <div key={key} className="flex items-center justify-between py-1.5 border-b border-line/50 last:border-0">
-                  <span className="text-[12px] text-ink-soft capitalize">{key.replace(/_/g, " ")}</span>
-                  <span className="text-[12.5px] font-medium text-ink">
-                    {typeof value === "boolean" || value === 1 || value === 0 ? (
-                      value ? (
-                        <span className="flex items-center gap-1 text-emerald-600"><CheckCircle2 size={12} /> Active</span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-rose-500"><XCircle size={12} /> Inactive</span>
-                      )
-                    ) : (
-                      value ?? "—"
-                    )}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        <button
-          onClick={onClose}
-          className="w-full py-2.5 rounded-[9px] bg-teal-900 hover:bg-teal-800 text-white font-semibold text-[13.5px] transition-colors"
-        >
-          Done
-        </button>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Confirm Delete Modal
-// ============================================================
-function ConfirmDeleteModal({ title, message, onConfirm, onCancel, loading }) {
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-5">
-      <div className="bg-white rounded-2xl w-full max-w-[400px] p-6">
-        <div className="flex flex-col items-center text-center mb-5">
-          <span className="w-14 h-14 rounded-full bg-rose-50 flex items-center justify-center mb-3">
-            <AlertCircle size={26} className="text-rose-500" />
-          </span>
-          <h3 className="font-brand text-lg font-bold text-teal-900">{title || "Confirm Delete"}</h3>
-          <p className="text-[13px] text-ink-soft mt-1">{message || "Are you sure you want to delete this item?"}</p>
-        </div>
-
-        <div className="flex gap-2.5">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-[9px] border border-line text-ink-soft font-medium text-[13.5px] disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[9px] bg-rose-600 hover:bg-rose-700 text-white font-semibold text-[13.5px] transition-colors disabled:opacity-70"
-          >
-            {loading ? (
-              <><Loader2 size={15} className="animate-spin" /> Deleting...</>
-            ) : (
-              "Delete"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Bulk Create Questions Modal
-// ============================================================
-function BulkCreateModal({ onSave, onClose, loading }) {
-  const [bulkQuestions, setBulkQuestions] = useState([
-    { question_type: "yes_no", question_text: "", correct_answer: "YES", sample_answer: "", display_order: 1 }
-  ]);
-
-  const addBulkQuestion = () => {
-    setBulkQuestions([...bulkQuestions, {
-      question_type: "yes_no",
-      question_text: "",
-      correct_answer: "YES",
-      sample_answer: "",
-      display_order: bulkQuestions.length + 1
-    }]);
-  };
-
-  const removeBulkQuestion = (index) => {
-    if (bulkQuestions.length <= 1) return;
-    const updated = bulkQuestions.filter((_, i) => i !== index);
-    setBulkQuestions(updated);
-  };
-
-  const updateBulkQuestion = (index, field, value) => {
-    const updated = [...bulkQuestions];
-    updated[index] = { ...updated[index], [field]: value };
-    if (field === "question_type") {
-      if (value === "yes_no") {
-        updated[index].correct_answer = "YES";
-        updated[index].sample_answer = "";
-      } else {
-        updated[index].correct_answer = "";
-        updated[index].sample_answer = "";
-      }
-    }
-    setBulkQuestions(updated);
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-5">
-      <div className="bg-white rounded-2xl w-full max-w-[600px] p-6 max-h-[80vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="font-brand text-lg font-semibold text-teal-900">Bulk Create Questions</h3>
-          <button onClick={onClose} className="text-ink-soft hover:text-ink">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="space-y-4 mb-6">
-          {bulkQuestions.map((q, index) => (
-            <div key={index} className="border border-line rounded-[12px] p-4 bg-[#FCFDFC]">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[12px] font-semibold text-teal-700">Question {index + 1}</span>
-                {bulkQuestions.length > 1 && (
-                  <button
-                    onClick={() => removeBulkQuestion(index)}
-                    className="text-rose-500 hover:text-rose-700"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-[11.5px] font-medium text-ink mb-1">Type</label>
-                  <select
-                    value={q.question_type}
-                    onChange={(e) => updateBulkQuestion(index, "question_type", e.target.value)}
-                    className="w-full px-3 py-2 border border-line rounded-[8px] text-[13px] bg-white"
-                  >
-                    <option value="yes_no">Yes/No</option>
-                    <option value="text">Text</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-[11.5px] font-medium text-ink mb-1">Question Text</label>
-                  <textarea
-                    value={q.question_text}
-                    onChange={(e) => updateBulkQuestion(index, "question_text", e.target.value)}
-                    placeholder="Enter question..."
-                    rows={2}
-                    className="w-full px-3 py-2 border border-line rounded-[8px] text-[13px] bg-white resize-none"
-                  />
-                </div>
-
-                {q.question_type === "yes_no" && (
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-ink mb-1">Correct Answer</label>
-                    <select
-                      value={q.correct_answer}
-                      onChange={(e) => updateBulkQuestion(index, "correct_answer", e.target.value)}
-                      className="w-full px-3 py-2 border border-line rounded-[8px] text-[13px] bg-white"
-                    >
-                      <option value="YES">Yes</option>
-                      <option value="NO">No</option>
-                    </select>
-                  </div>
-                )}
-
-                {q.question_type === "text" && (
-                  <div>
-                    <label className="block text-[11.5px] font-medium text-ink mb-1">Sample Answer</label>
-                    <input
-                      type="text"
-                      value={q.sample_answer}
-                      onChange={(e) => updateBulkQuestion(index, "sample_answer", e.target.value)}
-                      placeholder="Sample answer..."
-                      className="w-full px-3 py-2 border border-line rounded-[8px] text-[13px] bg-white"
-                    />
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-[11.5px] font-medium text-ink mb-1">Display Order</label>
-                  <input
-                    type="number"
-                    value={q.display_order}
-                    onChange={(e) => updateBulkQuestion(index, "display_order", e.target.value)}
-                    className="w-full px-3 py-2 border border-line rounded-[8px] text-[13px] bg-white"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <button
-          onClick={addBulkQuestion}
-          className="w-full py-2.5 rounded-[9px] border-2 border-dashed border-teal-300 text-teal-700 font-semibold text-[13.5px] hover:bg-teal-50 transition-colors mb-4 flex items-center justify-center gap-2"
-        >
-          <Plus size={16} /> Add Another Question
-        </button>
-
-        <div className="flex gap-2.5">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-[9px] border border-line text-ink-soft font-medium text-[13.5px] disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(bulkQuestions)}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[9px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13.5px] transition-colors disabled:opacity-70"
-          >
-            {loading ? (
-              <><Loader2 size={15} className="animate-spin" /> Creating...</>
-            ) : (
-              `Create ${bulkQuestions.length} Questions`
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================
-// Reusable Modal Component
-// ============================================================
-function Modal({ title, fields, initialValues, onSave, onClose, loading }) {
-  const [values, setValues] = useState(initialValues || {});
-
-  useEffect(() => {
-    const defaults = {};
-    fields.forEach((field) => {
-      if (field.type === "select" && field.options?.length) {
-        defaults[field.key] = field.options[0].value;
-      }
-    });
-    setValues({ ...defaults, ...(initialValues || {}) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialValues]);
-
-  const handleChange = (key, val) => setValues((v) => ({ ...v, [key]: val }));
-
-  const questionType = values.question_type || initialValues?.question_type || "yes_no";
-
-  return (
-    <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 px-5">
-      <div className="bg-white rounded-2xl w-full max-w-[420px] p-6">
+      <div className="bg-white rounded-2xl w-full max-w-[420px] p-6 max-h-[80vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-5">
           <h3 className="font-brand text-lg font-semibold text-teal-900">{title}</h3>
           <button onClick={onClose} className="text-ink-soft hover:text-ink">
@@ -326,92 +39,61 @@ function Modal({ title, fields, initialValues, onSave, onClose, loading }) {
           </button>
         </div>
 
-        <div className="space-y-4 mb-6">
-          {fields.map((field) => {
-            if (field.condition && !field.condition(questionType)) {
+        <div className="space-y-3">
+          {Object.entries(data).map(([key, value]) => {
+            // Skip internal/technical fields
+            if (['id', 'package_id', 'subheading_id', 'category_id', 'slug', 'created_at', 'updated_at'].includes(key)) {
               return null;
             }
-
+            
             return (
-              <div key={field.key}>
-                <label className="block text-[12.5px] font-medium text-ink mb-1.5">{field.label}</label>
-
-                {field.type === "select" ? (
-                  <select
-                    value={values[field.key] ?? field.options?.[0]?.value}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
-                  >
-                    {field.options?.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                ) : field.type === "textarea" ? (
-                  <textarea
-                    value={values[field.key] || ""}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    rows={3}
-                    className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500 resize-none"
-                  />
-                ) : (
-                  <input
-                    type={field.type || "text"}
-                    value={values[field.key] || ""}
-                    onChange={(e) => handleChange(field.key, e.target.value)}
-                    placeholder={field.placeholder}
-                    className="w-full px-3.5 py-2.5 border border-line rounded-[9px] text-[14px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500 focus:border-teal-500"
-                  />
-                )}
+              <div key={key} className="bg-[#F7F8F6] rounded-[10px] px-4 py-3">
+                <p className="text-[11px] text-ink-soft uppercase tracking-wider font-medium mb-1">
+                  {key.replace(/_/g, " ")}
+                </p>
+                <p className="text-[14px] font-medium text-ink">
+                  {typeof value === "boolean" || value === 1 || value === 0 ? (
+                    value ? (
+                      <span className="flex items-center gap-1 text-emerald-600">
+                        <CheckCircle2 size={14} /> Active
+                      </span>
+                    ) : (
+                      <span className="flex items-center gap-1 text-rose-500">
+                        <XCircle size={14} /> Inactive
+                      </span>
+                    )
+                  ) : value ? (
+                    value
+                  ) : (
+                    <span className="text-ink-soft italic">Not set</span>
+                  )}
+                </p>
               </div>
             );
           })}
         </div>
 
-        <div className="flex gap-2.5">
-          <button
-            onClick={onClose}
-            disabled={loading}
-            className="flex-1 py-2.5 rounded-[9px] border border-line text-ink-soft font-medium text-[13.5px] disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => onSave(values)}
-            disabled={loading}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-[9px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13.5px] transition-colors disabled:opacity-70"
-          >
-            {loading ? (
-              <><Loader2 size={15} className="animate-spin" /> Saving...</>
-            ) : (
-              "Save"
-            )}
-          </button>
-        </div>
+        <button
+          onClick={onClose}
+          className="w-full mt-5 py-2.5 rounded-[9px] bg-teal-900 hover:bg-teal-800 text-white font-semibold text-[13.5px] transition-colors"
+        >
+          Close
+        </button>
       </div>
     </div>
   );
 }
 
 // ============================================================
-// Questions Management Component
+// Questions Management Component (View Only)
 // ============================================================
 function QuestionsPanel({ packageId, subheadingId, onBack }) {
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modal, setModal] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [responseModal, setResponseModal] = useState(null);
-  const [deleteModal, setDeleteModal] = useState(null);
-  const [bulkModal, setBulkModal] = useState(false);
+  const [viewDetailsModal, setViewDetailsModal] = useState(null);
   const [qSearch, setQSearch] = useState("");
   const [answerFilter, setAnswerFilter] = useState("all");
   const [qPage, setQPage] = useState(1);
-  const [importFile, setImportFile] = useState(null);
-  const [importing, setImporting] = useState(false);
-  const [selectedQuestions, setSelectedQuestions] = useState([]);
 
   useEffect(() => {
     fetchQuestions();
@@ -455,318 +137,6 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
     }
   };
 
-  const saveQuestion = async (values) => {
-    if (!modal) return;
-    setSaving(true);
-
-    try {
-      const { token, tokenType } = getToken();
-      const isEdit = modal.mode === "edit";
-      const url = isEdit ? `${API_BASE_URL}/questions/${modal.data.id}` : `${API_BASE_URL}/questions`;
-
-      const questionType = values.question_type || "yes_no";
-
-      const body = {
-        package_id: packageId,
-        subheading_id: subheadingId,
-        question_type: questionType,
-        question_text: values.question_text,
-        correct_answer:
-          questionType === "yes_no"
-            ? (values.correct_answer || "YES").toUpperCase()
-            : undefined,
-        sample_answer: questionType === "text" ? values.sample_answer || "" : undefined,
-        display_order: parseInt(values.display_order) || 1,
-        is_active: values.is_active !== undefined ? values.is_active : true,
-      };
-
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const result = await res.json();
-      
-      if (result.status === "success") {
-        setResponseModal(result);
-        fetchQuestions();
-      } else {
-        setResponseModal({
-          status: "error",
-          message: result.message || "Operation failed.",
-        });
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    } finally {
-      setSaving(false);
-      setModal(null);
-    }
-  };
-
-  const saveBulkQuestions = async (bulkQuestions) => {
-    setSaving(true);
-
-    try {
-      const { token, tokenType } = getToken();
-      
-      const body = {
-        package_id: packageId,
-        subheading_id: subheadingId,
-        questions: bulkQuestions.map(q => ({
-          question_type: q.question_type,
-          question_text: q.question_text,
-          correct_answer: q.question_type === "yes_no" ? (q.correct_answer || "YES").toUpperCase() : undefined,
-          sample_answer: q.question_type === "text" ? q.sample_answer || "" : undefined,
-          display_order: parseInt(q.display_order) || 1,
-        })),
-      };
-
-      const res = await fetch(`${API_BASE_URL}/questions/bulk`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const result = await res.json();
-      
-      if (result.status === "success") {
-        setResponseModal(result);
-        fetchQuestions();
-      } else {
-        setResponseModal({
-          status: "error",
-          message: result.message || "Operation failed.",
-        });
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    } finally {
-      setSaving(false);
-      setBulkModal(false);
-    }
-  };
-
-  const confirmDeleteQuestion = (question) => {
-    setDeleteModal({
-      title: "Delete Question",
-      message: `Are you sure you want to delete this question? This action cannot be undone.`,
-      onConfirm: () => deleteSingleQuestion(question.id),
-    });
-  };
-
-  const deleteSingleQuestion = async (id) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/questions/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      setDeleteModal(null);
-      fetchQuestions();
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-      setDeleteModal(null);
-    }
-  };
-
-  const confirmBulkDelete = () => {
-    if (selectedQuestions.length === 0) return;
-    setDeleteModal({
-      title: "Bulk Delete Questions",
-      message: `Are you sure you want to delete ${selectedQuestions.length} selected questions? This action cannot be undone.`,
-      onConfirm: () => deleteBulkQuestions(),
-    });
-  };
-
-  const deleteBulkQuestions = async () => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/questions/bulk`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: JSON.stringify({
-          question_ids: selectedQuestions,
-        }),
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      setDeleteModal(null);
-      setSelectedQuestions([]);
-      fetchQuestions();
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-      setDeleteModal(null);
-    }
-  };
-
-  const toggleQuestionStatus = async (question) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/questions/${question.id}/toggle`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      fetchQuestions();
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    }
-  };
-
-  const downloadTemplate = async () => {
-    try {
-      const { token, tokenType } = getToken();
-      const res = await fetch(`${API_BASE_URL}/questions/template`, {
-        headers: {
-          Authorization: `${tokenType} ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to download template");
-      
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "questions_template.csv";
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Failed to download template. Please try again.",
-      });
-    }
-  };
-
-  const handleImport = async () => {
-    if (!importFile) return;
-    setImporting(true);
-
-    try {
-      const { token, tokenType } = getToken();
-      const formData = new FormData();
-      formData.append("package_id", packageId);
-      formData.append("subheading_id", subheadingId);
-      formData.append("file", importFile);
-
-      const res = await fetch(`${API_BASE_URL}/questions/import`, {
-        method: "POST",
-        headers: {
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: formData,
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      
-      if (result.status === "success") {
-        fetchQuestions();
-        setImportFile(null);
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Failed to import questions. Please try again.",
-      });
-    } finally {
-      setImporting(false);
-    }
-  };
-
-  const exportQuestions = async () => {
-    try {
-      const { token, tokenType } = getToken();
-      const res = await fetch(`${API_BASE_URL}/questions/export?subheading_id=${subheadingId}`, {
-        headers: {
-          Authorization: `${tokenType} ${token}`,
-          Accept: "application/json",
-        },
-      });
-
-      if (!res.ok) throw new Error("Failed to export questions");
-      
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `questions_${subheadingId}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Failed to export questions. Please try again.",
-      });
-    }
-  };
-
-  const toggleSelectQuestion = (id) => {
-    setSelectedQuestions(prev => 
-      prev.includes(id) ? prev.filter(qId => qId !== id) : [...prev, id]
-    );
-  };
-
-  const toggleSelectAll = () => {
-    if (selectedQuestions.length === filteredQuestions.length) {
-      setSelectedQuestions([]);
-    } else {
-      setSelectedQuestions(filteredQuestions.map(q => q.id));
-    }
-  };
-
   // Filter and search questions
   const filteredQuestions = questions.filter((q) => {
     const matchesSearch = q.question_text.toLowerCase().includes(qSearch.toLowerCase());
@@ -782,8 +152,6 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
     (qPage - 1) * QUESTIONS_PER_PAGE,
     qPage * QUESTIONS_PER_PAGE
   );
-
-  const modalInitialValues = modal && modal.mode === "edit" && modal.data ? modal.data : {};
 
   if (loading) {
     return (
@@ -804,88 +172,12 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
           >
             <ChevronLeft size={16} /> Back to Subheadings
           </button>
-          <h2 className="font-brand text-lg font-bold text-teal-900">Questions Management</h2>
+          <h2 className="font-brand text-lg font-bold text-teal-900">Questions</h2>
           <p className="text-ink-soft text-[13px] mt-0.5">
             Total: {filteredQuestions.length} questions
-            {selectedQuestions.length > 0 && ` · ${selectedQuestions.length} selected`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={downloadTemplate}
-            className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold text-[13px] px-4 py-2.5 rounded-[9px] transition-colors"
-          >
-            <Download size={14} /> Template
-          </button>
-          <button
-            onClick={exportQuestions}
-            className="flex items-center gap-2 bg-teal-50 hover:bg-teal-100 text-teal-700 font-semibold text-[13px] px-4 py-2.5 rounded-[9px] transition-colors"
-          >
-            <Download size={14} /> Export
-          </button>
-          <label className="flex items-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold text-[13px] px-4 py-2.5 rounded-[9px] transition-colors cursor-pointer">
-            <Upload size={14} /> Import
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="hidden"
-              onChange={(e) => setImportFile(e.target.files[0])}
-            />
-          </label>
-          <button
-            onClick={() => setBulkModal(true)}
-            className="flex items-center gap-2 bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-[13px] px-4 py-2.5 rounded-[9px] transition-colors"
-          >
-            <Layers size={14} /> Bulk Add
-          </button>
-          <button
-            onClick={() => setModal({ type: "question", mode: "add" })}
-            className="flex items-center gap-2 bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13.5px] px-4 py-2.5 rounded-[9px] transition-colors"
-          >
-            <Plus size={16} /> Add Question
-          </button>
-        </div>
       </div>
-
-      {/* Import file indicator */}
-      {importFile && (
-        <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-[12px] flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Upload size={16} className="text-amber-600" />
-            <span className="text-[13px] font-medium text-amber-800">{importFile.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleImport}
-              disabled={importing}
-              className="px-3 py-1.5 bg-amber-600 text-white rounded-[7px] text-[12px] font-medium hover:bg-amber-700 disabled:opacity-60"
-            >
-              {importing ? "Importing..." : "Upload"}
-            </button>
-            <button
-              onClick={() => setImportFile(null)}
-              className="p-1.5 text-amber-600 hover:text-amber-800"
-            >
-              <X size={16} />
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Bulk actions bar */}
-      {selectedQuestions.length > 0 && (
-        <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-[12px] flex items-center justify-between">
-          <span className="text-[13px] font-medium text-rose-700">
-            {selectedQuestions.length} question{selectedQuestions.length > 1 ? 's' : ''} selected
-          </span>
-          <button
-            onClick={confirmBulkDelete}
-            className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-[8px] text-[13px] font-semibold hover:bg-rose-700 transition-colors"
-          >
-            <Trash2 size={14} /> Delete Selected
-          </button>
-        </div>
-      )}
 
       {/* Search and filter */}
       <div className="flex items-center gap-3 mb-5">
@@ -899,50 +191,29 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
             className="w-full pl-9 pr-4 py-2.5 border border-line rounded-[9px] text-[13px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Filter size={15} className="text-ink-soft" />
-          <select
-            value={answerFilter}
-            onChange={(e) => { setAnswerFilter(e.target.value); setQPage(1); }}
-            className="px-3 py-2.5 border border-line rounded-[9px] text-[13px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500"
-          >
-            <option value="all">All Types</option>
-            <option value="yes">Yes/No - Yes</option>
-            <option value="no">Yes/No - No</option>
-            <option value="text">Text Questions</option>
-          </select>
-        </div>
+        <select
+          value={answerFilter}
+          onChange={(e) => { setAnswerFilter(e.target.value); setQPage(1); }}
+          className="px-3 py-2.5 border border-line rounded-[9px] text-[13px] bg-[#FCFDFC] focus:outline-2 focus:outline-teal-500"
+        >
+          <option value="all">All Types</option>
+          <option value="yes">Yes/No - Yes</option>
+          <option value="no">Yes/No - No</option>
+          <option value="text">Text Questions</option>
+        </select>
       </div>
-
-      {/* Select all checkbox — aligned to the same left guide + vertical center as row checkboxes */}
-      {filteredQuestions.length > 0 && (
-        <div className="mb-3 pl-[7px] pr-2">
-          <label className="flex items-center gap-3 cursor-pointer w-fit">
-            <span className="flex items-center justify-center w-4 h-5 -ml-1">
-              <input
-                type="checkbox"
-                checked={selectedQuestions.length === filteredQuestions.length && filteredQuestions.length > 0}
-                onChange={toggleSelectAll}
-                className="w-5 h-5 ml-6 rounded border-line text-teal-600 focus:ring-teal-500"
-              />
-            </span>
-            <span className="text-[13px] ml-3 text-ink-soft">Select all</span>
-          </label>
-        </div>
-      )}
 
       {/* Questions list */}
       {paginatedQuestions.length === 0 ? (
         <div className="bg-white border border-line rounded-2xl px-6 py-16 text-center">
           <FileQuestion size={32} className="text-teal-400 mx-auto mb-3" />
           <p className="text-ink-soft text-[13.5px]">
-            {questions.length === 0 ? "No questions yet — add one to get started." : "No questions match your filters."}
+            {questions.length === 0 ? "No questions found." : "No questions match your filters."}
           </p>
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {paginatedQuestions.map((q, index) => {
-            // Calculate the actual number based on current page
             const questionNumber = (qPage - 1) * QUESTIONS_PER_PAGE + index + 1;
             
             return (
@@ -950,18 +221,9 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
                 key={q.id}
                 className={`bg-white border rounded-[14px] px-5 py-4 hover:border-teal-500 transition-colors ${
                   !q.is_active ? "border-rose-200 bg-rose-50/30" : "border-line"
-                } ${selectedQuestions.includes(q.id) ? "border-teal-500 bg-teal-50/20" : ""}`}
+                }`}
               >
                 <div className="flex items-start gap-3">
-                  {/* Checkbox: vertically centered against the badge row (first line), nudged left to sit on the same guide as "Select all" */}
-                  <div className="flex items-center h-5 -ml-1 pt-0.5">
-                    <input
-                      type="checkbox"
-                      checked={selectedQuestions.includes(q.id)}
-                      onChange={() => toggleSelectQuestion(q.id)}
-                      className="w-4 h-4 rounded border-line text-teal-600 focus:ring-teal-500"
-                    />
-                  </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
@@ -998,23 +260,11 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
-                      onClick={() => toggleQuestionStatus(q)}
-                      title={q.is_active ? "Deactivate" : "Activate"}
-                      className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center hover:bg-amber-100"
-                    >
-                      {q.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                    </button>
-                    <button
-                      onClick={() => setModal({ type: "question", mode: "edit", data: q })}
+                      onClick={() => setViewDetailsModal({ title: "Question Details", data: q })}
                       className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center hover:bg-teal-100"
+                      title="View Details"
                     >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => confirmDeleteQuestion(q)}
-                      className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
-                    >
-                      <Trash2 size={14} />
+                      <Eye size={14} />
                     </button>
                   </div>
                 </div>
@@ -1057,82 +307,12 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
         </div>
       )}
 
-      {/* Question Add/Edit Modal */}
-      {modal?.type === "question" && (
-        <Modal
-          title={modal.mode === "add" ? "Add Question" : "Edit Question"}
-          fields={[
-            {
-              key: "question_type",
-              label: "Question Type",
-              type: "select",
-              options: [
-                { value: "yes_no", label: "Yes/No" },
-                { value: "text", label: "Text" },
-              ],
-            },
-            {
-              key: "question_text",
-              label: "Question Text",
-              type: "textarea",
-              placeholder: "Enter question text...",
-            },
-            {
-              key: "correct_answer",
-              label: "Correct Answer",
-              type: "select",
-              options: [
-                { value: "YES", label: "Yes" },
-                { value: "NO", label: "No" },
-              ],
-              condition: (type) => type === "yes_no",
-            },
-            {
-              key: "sample_answer",
-              label: "Sample Answer",
-              type: "textarea",
-              placeholder: "Enter sample answer...",
-              condition: (type) => type === "text",
-            },
-            {
-              key: "display_order",
-              label: "Display Order",
-              type: "number",
-              placeholder: "1",
-            },
-          ]}
-          initialValues={modalInitialValues}
-          onSave={saveQuestion}
-          onClose={() => setModal(null)}
-          loading={saving}
-        />
-      )}
-
-      {/* Bulk Create Modal */}
-      {bulkModal && (
-        <BulkCreateModal
-          onSave={saveBulkQuestions}
-          onClose={() => setBulkModal(false)}
-          loading={saving}
-        />
-      )}
-
-      {/* Response Modal */}
-      {responseModal && (
-        <ResponseModal
-          response={responseModal}
-          onClose={() => setResponseModal(null)}
-        />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteModal && (
-        <ConfirmDeleteModal
-          title={deleteModal.title}
-          message={deleteModal.message}
-          onConfirm={deleteModal.onConfirm}
-          onCancel={() => setDeleteModal(null)}
-          loading={false}
+      {/* View Details Modal */}
+      {viewDetailsModal && (
+        <ViewDetailsModal
+          title={viewDetailsModal.title}
+          data={viewDetailsModal.data}
+          onClose={() => setViewDetailsModal(null)}
         />
       )}
     </>
@@ -1140,23 +320,48 @@ function QuestionsPanel({ packageId, subheadingId, onBack }) {
 }
 
 // ============================================================
-// Main PackagesPage Component
+// Main PackagesPage Component (View Only)
 // ============================================================
 export default function PackagesPage({ search }) {
   const [packages, setPackages] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState({ level: "packages", packageId: null, categoryId: null });
-  const [modal, setModal] = useState(null);
-  const [saving, setSaving] = useState(false);
-  const [responseModal, setResponseModal] = useState(null);
-  const [deleteModal, setDeleteModal] = useState(null);
+  
+  // Initialize view from localStorage, default to "packages"
+  const [view, setView] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const savedView = localStorage.getItem('packages_view_state');
+      if (savedView) {
+        try {
+          return JSON.parse(savedView);
+        } catch (e) {
+          return { level: "packages", packageId: null, categoryId: null };
+        }
+      }
+    }
+    return { level: "packages", packageId: null, categoryId: null };
+  });
+  
+  const [viewDetailsModal, setViewDetailsModal] = useState(null);
   const [subheadings, setSubheadings] = useState([]);
   const [loadingSubheadings, setLoadingSubheadings] = useState(false);
 
-  // Fetch packages on mount
+  // Persist view state to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('packages_view_state', JSON.stringify(view));
+    }
+  }, [view]);
+
   useEffect(() => {
     fetchPackages();
   }, []);
+
+  // Load data based on persisted view
+  useEffect(() => {
+    if (view.level === "categories" && view.packageId) {
+      fetchSubheadings(view.packageId);
+    }
+  }, [view.level, view.packageId]);
 
   const getToken = () => {
     const token = localStorage.getItem("athma_admin_token");
@@ -1200,7 +405,6 @@ export default function PackagesPage({ search }) {
     }
   };
 
-  // Fetch subheadings for a package
   const fetchSubheadings = async (packageId) => {
     setLoadingSubheadings(true);
     setSubheadings([]);
@@ -1221,7 +425,6 @@ export default function PackagesPage({ search }) {
         if (Array.isArray(data)) {
           setSubheadings(data);
         } else if (data && typeof data === 'object') {
-          // Handle nested data structures
           const arrayData = data.data || data.subheadings || [];
           setSubheadings(Array.isArray(arrayData) ? arrayData : [data]);
         } else {
@@ -1243,228 +446,6 @@ export default function PackagesPage({ search }) {
   const filteredPackages = packages.filter((p) =>
     p.name.toLowerCase().includes(search.trim().toLowerCase())
   );
-
-  // ============ PACKAGE CRUD ============
-  const savePackage = async (values) => {
-    if (!modal) return;
-    setSaving(true);
-
-    try {
-      const { token, tokenType } = getToken();
-      const isEdit = modal.mode === "edit";
-      const url = isEdit ? `${API_BASE_URL}/packages/${modal.data.id}` : `${API_BASE_URL}/packages`;
-      
-      const body = {
-        name: values.name,
-        description: values.description || "",
-        price: parseFloat(values.price) || 0,
-        age_group: values.age || "18-60",
-        is_active: values.is_active !== undefined ? values.is_active : true,
-      };
-
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const result = await res.json();
-      
-      if (result.status === "success") {
-        setResponseModal(result);
-        fetchPackages();
-      } else {
-        setResponseModal({
-          status: "error",
-          message: result.message || "Operation failed.",
-        });
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    } finally {
-      setSaving(false);
-      setModal(null);
-    }
-  };
-
-  const confirmDeletePackage = (pkg) => {
-    setDeleteModal({
-      title: "Delete Package",
-      message: `Are you sure you want to delete "${pkg.name}"? This will also delete all its subheadings and questions. This action cannot be undone.`,
-      onConfirm: () => deletePackage(pkg.id),
-    });
-  };
-
-  const deletePackage = async (id) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/packages/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      setDeleteModal(null);
-      fetchPackages();
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-      setDeleteModal(null);
-    }
-  };
-
-  const togglePackageStatus = async (pkg) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/packages/${pkg.id}/toggle`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      fetchPackages();
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    }
-  };
-
-  // ============ SUBHEADING (CATEGORY) CRUD ============
-  const saveSubheading = async (values) => {
-    if (!modal || !view.packageId) return;
-    setSaving(true);
-
-    try {
-      const { token, tokenType } = getToken();
-      const isEdit = modal.mode === "edit";
-      const url = isEdit ? `${API_BASE_URL}/subheadings/${modal.data.id}` : `${API_BASE_URL}/subheadings`;
-      
-      const body = {
-        package_id: view.packageId,
-        name: values.name,
-        description: values.description || "",
-        question_count: parseInt(values.question_count) || 0,
-        is_active: true,
-      };
-
-      const res = await fetch(url, {
-        method: isEdit ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-        body: JSON.stringify(body),
-      });
-
-      const result = await res.json();
-      
-      if (result.status === "success") {
-        setResponseModal(result);
-        fetchSubheadings(view.packageId);
-      } else {
-        setResponseModal({
-          status: "error",
-          message: result.message || "Operation failed.",
-        });
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    } finally {
-      setSaving(false);
-      setModal(null);
-    }
-  };
-
-  const confirmDeleteSubheading = (subheading) => {
-    setDeleteModal({
-      title: "Delete Subheading",
-      message: `Are you sure you want to delete "${subheading.name}"? This will also delete all its questions.`,
-      onConfirm: () => deleteSubheading(subheading.id),
-    });
-  };
-
-  const deleteSubheading = async (id) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/subheadings/${id}`, {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      setDeleteModal(null);
-      if (view.packageId) {
-        fetchSubheadings(view.packageId);
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-      setDeleteModal(null);
-    }
-  };
-
-  const toggleSubheadingStatus = async (subheading) => {
-    try {
-      const { token, tokenType } = getToken();
-      
-      const res = await fetch(`${API_BASE_URL}/subheadings/${subheading.id}/toggle`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Authorization: `${tokenType} ${token}`,
-        },
-      });
-
-      const result = await res.json();
-      setResponseModal(result);
-      if (view.packageId) {
-        fetchSubheadings(view.packageId);
-      }
-    } catch (err) {
-      setResponseModal({
-        status: "error",
-        message: "Couldn't reach the server. Please try again.",
-      });
-    }
-  };
-
-  const modalInitialValues = modal && modal.mode === "edit" && modal.data ? modal.data : {};
 
   const goToPackages = () => {
     setView({ level: "packages", packageId: null, categoryId: null });
@@ -1494,20 +475,14 @@ export default function PackagesPage({ search }) {
             <div>
               <h2 className="font-brand text-lg font-bold text-teal-900">Care Packages</h2>
               <p className="text-ink-soft text-[13px] mt-0.5">
-                Manage pricing, subheadings, and questions for each package.
+                View packages, subheadings, and questions.
               </p>
             </div>
-            <button
-              onClick={() => setModal({ type: "package", mode: "add" })}
-              className="flex items-center gap-2 bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13.5px] px-4 py-2.5 rounded-[9px] transition-colors"
-            >
-              <Plus size={16} /> Add Package
-            </button>
           </div>
 
           {filteredPackages.length === 0 ? (
             <p className="text-ink-soft text-[13.5px] text-center py-16">
-              {search ? `No packages match "${search}".` : "No packages yet — add one to get started."}
+              {search ? `No packages match "${search}".` : "No packages found."}
             </p>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1528,27 +503,13 @@ export default function PackagesPage({ search }) {
                         </span>
                       )}
                     </div>
-                    <div className="flex gap-1.5">
-                      <button
-                        onClick={() => togglePackageStatus(pkg)}
-                        title={pkg.is_active ? "Deactivate" : "Activate"}
-                        className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center hover:bg-amber-100"
-                      >
-                        {pkg.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                      </button>
-                      <button
-                        onClick={() => setModal({ type: "package", mode: "edit", data: pkg })}
-                        className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center hover:bg-teal-100"
-                      >
-                        <Pencil size={14} />
-                      </button>
-                      <button
-                        onClick={() => confirmDeletePackage(pkg)}
-                        className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => setViewDetailsModal({ title: "Package Details", data: pkg })}
+                      className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center hover:bg-teal-100"
+                      title="View Details"
+                    >
+                      <Eye size={14} />
+                    </button>
                   </div>
 
                   {pkg.description && (
@@ -1568,7 +529,7 @@ export default function PackagesPage({ search }) {
                     onClick={() => handleViewSubheadings(pkg)}
                     className="w-full py-2.5 rounded-[9px] border border-line hover:border-teal-500 hover:bg-teal-50 text-teal-800 font-semibold text-[13px] transition-colors flex items-center justify-center gap-1.5"
                   >
-                    Manage Subheadings
+                    View Subheadings
                     <ChevronRight size={15} />
                   </button>
                 </div>
@@ -1593,15 +554,9 @@ export default function PackagesPage({ search }) {
                 {activePackage.name} — Subheadings
               </h2>
               <p className="text-ink-soft text-[13px] mt-0.5">
-                Manage subheadings (categories) for this package.
+                View subheadings for this package.
               </p>
             </div>
-            <button
-              onClick={() => setModal({ type: "subheading", mode: "add" })}
-              className="flex items-center gap-2 bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[13.5px] px-4 py-2.5 rounded-[9px] transition-colors"
-            >
-              <Plus size={16} /> Add Subheading
-            </button>
           </div>
 
           {loadingSubheadings ? (
@@ -1632,23 +587,11 @@ export default function PackagesPage({ search }) {
                   </div>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => toggleSubheadingStatus(sub)}
-                      title={sub.is_active ? "Deactivate" : "Activate"}
-                      className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center hover:bg-amber-100"
-                    >
-                      {sub.is_active ? <ToggleRight size={14} /> : <ToggleLeft size={14} />}
-                    </button>
-                    <button
-                      onClick={() => setModal({ type: "subheading", mode: "edit", data: sub })}
+                      onClick={() => setViewDetailsModal({ title: "Subheading Details", data: sub })}
                       className="w-8 h-8 rounded-lg bg-teal-50 text-teal-700 flex items-center justify-center hover:bg-teal-100"
+                      title="View Details"
                     >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={() => confirmDeleteSubheading(sub)}
-                      className="w-8 h-8 rounded-lg bg-red-50 text-red-500 flex items-center justify-center hover:bg-red-100"
-                    >
-                      <Trash2 size={14} />
+                      <Eye size={14} />
                     </button>
                     <button
                       onClick={() => setView({ 
@@ -1658,7 +601,7 @@ export default function PackagesPage({ search }) {
                       })}
                       className="ml-1 px-3.5 py-2 rounded-[9px] bg-teal-50 text-teal-800 font-semibold text-[12.5px] hover:bg-teal-100 transition-colors flex items-center gap-1"
                     >
-                      Questions <ChevronRight size={14} />
+                      View Questions <ChevronRight size={14} />
                     </button>
                   </div>
                 </div>
@@ -1666,7 +609,7 @@ export default function PackagesPage({ search }) {
             </div>
           ) : (
             <p className="text-ink-soft text-[13.5px] text-center py-10">
-              No subheadings yet — add one to get started.
+              No subheadings found.
             </p>
           )}
         </>
@@ -1685,55 +628,12 @@ export default function PackagesPage({ search }) {
         />
       )}
 
-      {/* Package Add/Edit Modal */}
-      {modal?.type === "package" && (
-        <Modal
-          title={modal.mode === "add" ? "Add Package" : "Edit Package"}
-          fields={[
-            { key: "name", label: "Package name", placeholder: "e.g. Executive" },
-            { key: "description", label: "Description", type: "textarea", placeholder: "Package description..." },
-            { key: "age", label: "Age group", placeholder: "e.g. 18 - 60 Years" },
-            { key: "price", label: "Price (₹)", type: "number", placeholder: "499" },
-          ]}
-          initialValues={modalInitialValues}
-          onSave={savePackage}
-          onClose={() => setModal(null)}
-          loading={saving}
-        />
-      )}
-
-      {/* Subheading Add/Edit Modal */}
-      {modal?.type === "subheading" && (
-        <Modal
-          title={modal.mode === "add" ? "Add Subheading" : "Edit Subheading"}
-          fields={[
-            { key: "name", label: "Subheading name", placeholder: "e.g. Mood & Emotions" },
-            { key: "description", label: "Description", type: "textarea", placeholder: "Subheading description..." },
-            { key: "question_count", label: "Question count", type: "number", placeholder: "5" },
-          ]}
-          initialValues={modalInitialValues}
-          onSave={saveSubheading}
-          onClose={() => setModal(null)}
-          loading={saving}
-        />
-      )}
-
-      {/* Response Modal */}
-      {responseModal && (
-        <ResponseModal
-          response={responseModal}
-          onClose={() => setResponseModal(null)}
-        />
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {deleteModal && (
-        <ConfirmDeleteModal
-          title={deleteModal.title}
-          message={deleteModal.message}
-          onConfirm={deleteModal.onConfirm}
-          onCancel={() => setDeleteModal(null)}
-          loading={false}
+      {/* View Details Modal */}
+      {viewDetailsModal && (
+        <ViewDetailsModal
+          title={viewDetailsModal.title}
+          data={viewDetailsModal.data}
+          onClose={() => setViewDetailsModal(null)}
         />
       )}
     </>
