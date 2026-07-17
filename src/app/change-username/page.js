@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -22,7 +22,8 @@ const changeUsernameSchema = z.object({
     ),
 });
 
-export default function ChangeUsernamePage() {
+// Inner component that uses useSearchParams
+function ChangeUsernameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -55,6 +56,7 @@ export default function ChangeUsernamePage() {
       setTokenValid(false);
       setTokenError("Invalid or missing reset link parameters.");
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resetToken, resetEmail]);
 
   const verifyToken = async (email, token) => {
@@ -366,5 +368,21 @@ export default function ChangeUsernamePage() {
         </p>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function ChangeUsernamePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-[#F7F8F6]">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin text-teal-600" />
+          <p className="text-slate-500 text-[14px]">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ChangeUsernameContent />
+    </Suspense>
   );
 }
