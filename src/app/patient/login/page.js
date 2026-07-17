@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -24,7 +24,8 @@ const forgotUsernameSchema = z.object({
   email: z.string().min(1, "Email is required").email("Enter a valid email address"),
 });
 
-export default function LoginPage() {
+// Inner component that uses useSearchParams
+function LoginContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -570,5 +571,21 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Main export with Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-bg px-4 md:px-5 py-6 md:py-10">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 size={32} className="animate-spin text-teal-600" />
+          <p className="text-slate-500 text-[14px]">Loading...</p>
+        </div>
+      </div>
+    }>
+      <LoginContent />
+    </Suspense>
   );
 }
