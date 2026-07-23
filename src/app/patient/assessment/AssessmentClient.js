@@ -14,7 +14,6 @@ function chunk(arr, size) {
 }
 
 // Tamil translations for common answer options
-// Tamil translations for common answer options
 const TAMIL_TRANSLATIONS = {
   // EPI/MPQ Yes/No options
   "YES": "ஆம்",
@@ -23,71 +22,81 @@ const TAMIL_TRANSLATIONS = {
   "No": "இல்லை",
   "yes": "ஆம்",
   "no": "இல்லை",
-  
+
   // Likert scale options (GHQ/PHQ)
   "Not at all": "நிச்சயமாக இல்லை",
   "No more than usual": "நான் அப்படி நினைக்கவில்லை",
   "Rather more than usual": "என் மனதில் தோன்றிச் சென்றது",
   "Much more than usual": "நிச்சயமாகத் தோன்றியது",
-  
+
   // Alternative Likert options
   "Better than usual": "வழக்கத்தை விட சிறப்பாக",
   "Same as usual": "வழக்கம் போல்",
   "Less than usual": "வழக்கத்தை விட குறைவாக",
   "Much less than usual": "வழக்கத்தை விட மிகக் குறைவாக",
-  
-  // GHQ specific options - FIXED
+
+  // GHQ specific options
   "Worse than usual": "வழக்கத்தை விட மோசமாக",
   "Much worse than usual": "வழக்கத்தை விட மிக மோசமாக",
-  
+
   // PHQ-9 frequency options
   "Not at all": "இல்லவே இல்லை",
   "Several days": "சில நாட்கள்",
   "More than half the days": "பாதிக்கு மேற்பட்ட நாட்கள்",
   "Nearly every day": "கிட்டத்தட்ட தினமும்",
-  
+
   // Additional common options
   "Never": "ஒருபோதும் இல்லை",
   "Rarely": "அரிதாக",
   "Sometimes": "சில சமயம்",
   "Often": "அடிக்கடி",
   "Always": "எப்போதும்",
-  
+
   "Strongly Disagree": "முற்றிலும் மறுக்கிறேன்",
   "Disagree": "மறுக்கிறேன்",
   "Neutral": "நடுநிலை",
   "Agree": "ஏற்கிறேன்",
   "Strongly Agree": "முற்றிலும் ஏற்கிறேன்",
-  
+
   "Very Difficult": "மிகவும் கடினம்",
   "Difficult": "கடினம்",
   "Easy": "எளிது",
   "Very Easy": "மிகவும் எளிது",
+
+  // EPDS specific translations
+  "As much as I ever did": "முன்பு இருந்ததைப் போலவே",
+  "Rather less than I used to": "முன்பை விட குறைவாக",
+  "Definitely less than I used to": "முன்பை விட நிச்சயமாக குறைவாக",
+  "Hardly at all": "அரிதாகவே",
+  "Yes, most of the time": "ஆம், பெரும்பாலும்",
+  "Yes, some of the time": "ஆம், சில நேரங்களில்",
+  "Not very often": "அடிக்கடி இல்லை",
+  "No, never": "இல்லை, ஒருபோதும்",
+  "No, not at all": "இல்லை, நிச்சயமாக இல்லை",
+  "Hardly ever": "அரிதாகவே",
 };
 
 // Function to get Tamil translation for an option
 const getTamilTranslation = (optionText) => {
   if (!optionText) return "";
   const trimmed = optionText.trim();
-  
-  // Check for exact match first
+
   if (TAMIL_TRANSLATIONS[trimmed]) {
     return TAMIL_TRANSLATIONS[trimmed];
   }
-  
-  // Check case-insensitive match
+
   const lowerTrimmed = trimmed.toLowerCase();
   for (const [key, value] of Object.entries(TAMIL_TRANSLATIONS)) {
     if (key.toLowerCase() === lowerTrimmed) {
       return value;
     }
   }
-  
+
   return "";
 };
 
 // ============================================================
-// Category Complete Modal - Shows progress after each category
+// Category Complete Modal
 // ============================================================
 function CategoryCompleteModal({ completedName, completedIndex, totalCategories, nextName, onContinue, onViewResults, loading }) {
   return (
@@ -96,11 +105,7 @@ function CategoryCompleteModal({ completedName, completedIndex, totalCategories,
         <span className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center mb-4 mx-auto">
           <PartyPopper size={28} className="text-emerald-500" />
         </span>
-
-        <h3 className="font-brand text-lg font-bold text-teal-900">
-          {completedName} completed!
-        </h3>
-
+        <h3 className="font-brand text-lg font-bold text-teal-900">{completedName} completed!</h3>
         <p className="text-[13.5px] text-ink-soft mt-2">
           You've completed{" "}
           <span className="font-semibold text-teal-800">
@@ -108,46 +113,26 @@ function CategoryCompleteModal({ completedName, completedIndex, totalCategories,
           </span>{" "}
           {totalCategories === 1 ? "category" : "categories"}.
         </p>
-
-        {/* Progress dots - showing completed vs remaining */}
         <div className="flex items-center justify-center gap-1.5 mt-4 mb-5">
           {Array.from({ length: totalCategories }, (_, i) => (
-            <span
-              key={i}
-              className={`h-1.5 rounded-full transition-all ${
-                i < completedIndex ? "w-6 bg-emerald-500" : "w-6 bg-[#EFF1EE]"
-              }`}
-            />
+            <span key={i} className={`h-1.5 rounded-full transition-all ${i < completedIndex ? "w-6 bg-emerald-500" : "w-6 bg-[#EFF1EE]"}`} />
           ))}
         </div>
-
         {nextName ? (
           <>
             <div className="bg-teal-50 border border-teal-100 rounded-xl px-4 py-3 mb-5">
-              <p className="text-[10.5px] font-semibold text-teal-700 uppercase tracking-wide mb-1">
-                Up Next
-              </p>
+              <p className="text-[10.5px] font-semibold text-teal-700 uppercase tracking-wide mb-1">Up Next</p>
               <p className="text-[14.5px] font-bold text-teal-900">{nextName}</p>
             </div>
-            <button
-              onClick={onContinue}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-70"
-            >
+            <button onClick={onContinue} disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-colors disabled:opacity-70">
               {loading ? "Loading..." : `Continue to ${nextName}`}
               {!loading && <ArrowRight size={16} />}
             </button>
           </>
         ) : (
           <>
-            <p className="text-[13px] text-ink-soft mb-5">
-              That's everything — great job! You can view your results now.
-            </p>
-            <button
-              onClick={onViewResults}
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-teal-900 hover:bg-teal-800 text-white font-semibold text-[14px] transition-colors disabled:opacity-70"
-            >
+            <p className="text-[13px] text-ink-soft mb-5">That's everything — great job! You can view your results now.</p>
+            <button onClick={onViewResults} disabled={loading} className="w-full flex items-center justify-center gap-2 py-3 rounded-[10px] bg-teal-900 hover:bg-teal-800 text-white font-semibold text-[14px] transition-colors disabled:opacity-70">
               {loading ? "Loading..." : "View Results"}
               {!loading && <ArrowRight size={16} />}
             </button>
@@ -159,45 +144,24 @@ function CategoryCompleteModal({ completedName, completedIndex, totalCategories,
 }
 
 // ============================================================
-// Thank You Modal - Shown after all categories are completed
+// Thank You Modal
 // ============================================================
 function ThankYouModal({ onClose }) {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
       <div className="bg-white rounded-2xl w-full max-w-md p-8 text-center relative animate-in fade-in zoom-in duration-300">
-        {/* Close button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-        >
+        <button onClick={onClose} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors">
           <X size={20} />
         </button>
-
-        {/* Icon */}
         <div className="w-20 h-20 rounded-full bg-emerald-50 flex items-center justify-center mx-auto mb-5">
           <CheckCircle2 size={40} className="text-emerald-500" />
         </div>
-
-        {/* Title */}
-        <h2 className="text-2xl font-bold text-teal-900 mb-3">
-          Thank You! 🙏
-        </h2>
-
-        {/* Message */}
+        <h2 className="text-2xl font-bold text-teal-900 mb-3">Thank You! 🙏</h2>
         <div className="space-y-3 text-gray-600">
-          <p className="text-[15px] leading-relaxed">
-            Our team will verify all your responses and contact you soon.
-          </p>
-          <p className="text-[14px] font-medium text-teal-700 bg-teal-50 rounded-lg py-3 px-4">
-            We appreciate your time and trust in us! 💙
-          </p>
+          <p className="text-[15px] leading-relaxed">Our team will verify all your responses and contact you soon.</p>
+          <p className="text-[14px] font-medium text-teal-700 bg-teal-50 rounded-lg py-3 px-4">We appreciate your time and trust in us! 💙</p>
         </div>
-
-        {/* Button */}
-        <button
-          onClick={onClose}
-          className="w-full mt-6 py-3 rounded-xl bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-all shadow-md hover:shadow-lg"
-        >
+        <button onClick={onClose} className="w-full mt-6 py-3 rounded-xl bg-coral-600 hover:bg-coral-700 text-white font-semibold text-[14px] transition-all shadow-md hover:shadow-lg">
           Back to Categories
         </button>
       </div>
@@ -224,15 +188,13 @@ export default function AssessmentPage() {
   const [saveStatus, setSaveStatus] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [assessmentType, setAssessmentType] = useState("epi");
+  const [isEPDS, setIsEPDS] = useState(false);
 
   const [packageSubheadings, setPackageSubheadings] = useState([]);
   const [subheadingsLoaded, setSubheadingsLoaded] = useState(false);
 
-  // Completion popup state
   const [completionInfo, setCompletionInfo] = useState(null);
   const [popupLoading, setPopupLoading] = useState(false);
-
-  // Thank You modal state
   const [showThankYou, setShowThankYou] = useState(false);
 
   const [activeCategory, setActiveCategory] = useState(0);
@@ -241,6 +203,35 @@ export default function AssessmentPage() {
   const scrollContainerRef = useRef(null);
   const saveTimerRef = useRef(null);
   const textareaRefs = useRef({});
+
+  // ------------------------------------------------------------------
+  // EPDS: Determine if a question is reverse scored using the API's
+  // own `scale` field ("star" = reverse scored, "un-star" = normal).
+  // This replaces the old hardcoded "question 3, 5-10" guesswork.
+  // ------------------------------------------------------------------
+  const isEPDSReverseScored = useCallback((question) => {
+    if (!question) return false;
+    if (question.scale) {
+      return question.scale === "star";
+    }
+    // Fallback for older payloads without a scale field
+    const questionNumber = question.display_order;
+    return questionNumber === 3 || questionNumber >= 5;
+  }, []);
+
+  // ------------------------------------------------------------------
+  // EPDS: Get the score for a given option index.
+  // Always prefers the API-provided `scores` array (source of truth),
+  // and only falls back to manual math if `scores` is missing.
+  // ------------------------------------------------------------------
+  const getEPDSScoreForOption = useCallback((question, optionIndex) => {
+    if (question?.scores && question.scores[optionIndex] !== undefined) {
+      return question.scores[optionIndex];
+    }
+    // Fallback if the API didn't send a scores array
+    const isReverse = isEPDSReverseScored(question);
+    return isReverse ? 3 - optionIndex : optionIndex;
+  }, [isEPDSReverseScored]);
 
   // Resolve IDs from URL params or localStorage
   useEffect(() => {
@@ -262,7 +253,6 @@ export default function AssessmentPage() {
       localStorage.setItem("athma_current_assessment_package", String(pkgId));
       localStorage.setItem("athma_current_assessment_subheading", String(subId));
 
-      // Reset completion popup when landing on a new subheading
       setCompletionInfo(null);
       setPopupLoading(false);
       setSubmitting(false);
@@ -301,6 +291,11 @@ export default function AssessmentPage() {
 
     const name = (subheadingName || "").toLowerCase();
     const pkgName = (packageName || "").toLowerCase();
+
+    if (name.includes("epds") || name.includes("edinburgh") || name.includes("postnatal")) {
+      setIsEPDS(true);
+      return "likert";
+    }
 
     if (
       name.includes("sct") ||
@@ -356,7 +351,6 @@ export default function AssessmentPage() {
       const headers = getAuthHeaders();
       if (!headers) return;
 
-      // Fetch questions
       const questionsRes = await fetch(
         `https://api.crazystory.in/api/patient/questions/subheading/${subheadingId}`,
         { headers }
@@ -377,7 +371,6 @@ export default function AssessmentPage() {
       setQuestions(fetchedQuestions);
       setSubheadingInfo(questionsData.data?.subheading || null);
 
-      // Determine assessment type
       const subheadingName = questionsData.data?.subheading?.name || "";
       const packageName = questionsData.data?.subheading?.package_name || "";
       const type = determineAssessmentType(subheadingName, packageName, fetchedQuestions);
@@ -387,18 +380,29 @@ export default function AssessmentPage() {
       const initialAnswers = {};
       fetchedQuestions.forEach(question => {
         if (question.answered && question.user_answer !== undefined && question.user_answer !== null) {
-          initialAnswers[question.id] = question.user_answer;
+          let answerValue = question.user_answer;
+
+          // For EPDS, if user_answer is text (option label) rather than a score, convert to score
+          if (isEPDS && typeof answerValue === 'string' && isNaN(answerValue)) {
+            const options = question.options || [];
+            const optionIndex = options.findIndex(opt =>
+              String(opt).trim().toLowerCase() === String(answerValue).trim().toLowerCase()
+            );
+            if (optionIndex !== -1) {
+              answerValue = String(getEPDSScoreForOption(question, optionIndex));
+            }
+          }
+
+          initialAnswers[question.id] = answerValue;
         }
       });
       setAnswers(initialAnswers);
 
-      // Set progress from the response
       if (questionsData.data?.progress) {
         setProgress(questionsData.data.progress);
         setIsComplete(questionsData.data.progress.is_complete);
       }
 
-      // Also fetch detailed progress
       try {
         const progressRes = await fetch(
           `https://api.crazystory.in/api/patient/answers/progress?subheading_id=${subheadingId}`,
@@ -419,7 +423,7 @@ export default function AssessmentPage() {
     } finally {
       setLoading(false);
     }
-  }, [packageId, subheadingId, getAuthHeaders, router, determineAssessmentType]);
+  }, [packageId, subheadingId, getAuthHeaders, router, determineAssessmentType, isEPDS, getEPDSScoreForOption]);
 
   useEffect(() => {
     fetchAssessmentData();
@@ -458,13 +462,11 @@ export default function AssessmentPage() {
         return false;
       }
 
-      // Update progress from response
       if (result.data?.progress) {
         setProgress(result.data.progress);
         setIsComplete(result.data.progress.is_complete);
       }
 
-      // Immediately clear the save status after saving
       setSaveStatus(prev => {
         const updated = { ...prev };
         delete updated[questionId];
@@ -505,16 +507,32 @@ export default function AssessmentPage() {
     }, 300);
   };
 
-  // Immediate save for Likert-style option selection
-  const handleLikertAnswer = (questionId, optionLabel, optionIndex) => {
-    setAnswers(prev => ({ ...prev, [questionId]: optionIndex }));
+  // EPDS: Handle Likert answer using the question's own scores/scale data
+  const handleEPDSLikertAnswer = (questionId, question, optionIndex) => {
+    const scoreValue = getEPDSScoreForOption(question, optionIndex);
+
+    setAnswers(prev => ({ ...prev, [questionId]: String(scoreValue) }));
 
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current);
     }
 
     saveTimerRef.current = setTimeout(() => {
-      saveAnswer(questionId, String(optionIndex));
+      saveAnswer(questionId, String(scoreValue));
+    }, 300);
+  };
+
+  // Standard Likert answer (non-EPDS)
+  const handleLikertAnswer = (questionId, optionLabel, optionIndex, scores) => {
+    const scoreValue = scores && scores[optionIndex] !== undefined ? scores[optionIndex] : optionIndex + 1;
+    setAnswers(prev => ({ ...prev, [questionId]: String(scoreValue) }));
+
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+    }
+
+    saveTimerRef.current = setTimeout(() => {
+      saveAnswer(questionId, String(scoreValue));
     }, 300);
   };
 
@@ -526,32 +544,25 @@ export default function AssessmentPage() {
     return packageSubheadings[currentIdx + 1] || null;
   }, [packageSubheadings, subheadingId]);
 
-  // Submit assessment - shows completion popup or thank you modal
+  // Submit assessment
   const handleSubmit = async () => {
-    // Wait a moment for any pending saves to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Check if there are any questions with 'saving' status
     const savingQuestions = Object.keys(saveStatus).filter(
       id => saveStatus[id] === 'saving'
     );
 
-    // If there are saving questions, wait for them to complete
     if (savingQuestions.length > 0) {
       await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Check again after waiting
       const stillSaving = Object.keys(saveStatus).filter(
         id => saveStatus[id] === 'saving'
       );
-      
       if (stillSaving.length > 0) {
         alert("Please wait for all answers to be saved before submitting.");
         return;
       }
     }
 
-    // Check for error statuses
     const errorQuestions = Object.keys(saveStatus).filter(
       id => saveStatus[id] === 'error'
     );
@@ -561,19 +572,15 @@ export default function AssessmentPage() {
       return;
     }
 
-    // Clear save statuses
     setSaveStatus({});
-
     setSubmitting(true);
 
-    // Always fetch the latest list to ensure we have the correct data
     let list = packageSubheadings;
     if (!subheadingsLoaded || list.length === 0) {
       const fetched = await fetchPackageSubheadings();
       if (fetched) list = fetched;
     }
 
-    // If still no list, try one more time with a direct fetch
     if (list.length === 0 && packageId) {
       try {
         const headers = getAuthHeaders();
@@ -593,27 +600,18 @@ export default function AssessmentPage() {
       }
     }
 
-    // Find the current index in the list
     const currentIdx = list.findIndex((s) => String(s.id) === String(subheadingId));
-    
-    // Get the next subheading
     const next = currentIdx !== -1 && currentIdx < list.length - 1 ? list[currentIdx + 1] : null;
-    
-    // Calculate completed count - we've completed up to current index + 1
     const completedCount = currentIdx !== -1 ? currentIdx + 1 : 1;
     const totalCategories = list.length || 1;
-    
-    // Get the name of the completed category
     const completedName = subheadingInfo?.name || list[currentIdx]?.name || "This section";
 
-    // If this is the last category, show Thank You modal directly
     if (!next) {
       setShowThankYou(true);
       setSubmitting(false);
       return;
     }
 
-    // Show completion popup with next category
     setCompletionInfo({
       completedName,
       completedIndex: completedCount,
@@ -624,7 +622,6 @@ export default function AssessmentPage() {
     setSubmitting(false);
   };
 
-  // Called when the person taps "Continue to <next>" in the completion popup
   const handleContinueToNext = () => {
     const next = completionInfo?.next;
     if (!next) return;
@@ -638,15 +635,12 @@ export default function AssessmentPage() {
     router.push(`/patient/assessment?subheading_id=${next.id}&package_id=${packageId}`);
   };
 
-  // Called when the person taps "View Results" in the completion popup
-  // This is now only used when there's a next category and they want to view results early
   const handleViewResultsFromPopup = () => {
     setPopupLoading(true);
     setCompletionInfo(null);
     router.push(`/patient/result?subheading_id=${subheadingId}&package_id=${packageId}`);
   };
 
-  // Handle Thank You modal close
   const handleThankYouClose = () => {
     setShowThankYou(false);
     router.push("/patient/category");
@@ -833,13 +827,23 @@ export default function AssessmentPage() {
                 {assessmentType === "sct"
                   ? "📝 Please complete the sentences with your thoughts and feelings. There are no right or wrong answers."
                   : assessmentType === "likert"
-                  ? "📊 Please choose the option that best describes how you've been feeling recently."
+                  ? isEPDS
+                    ? "📊 Please choose the option that best describes how you've been feeling recently. (EPDS - Edinburgh Postnatal Depression Scale)"
+                    : "📊 Please choose the option that best describes how you've been feeling recently."
                   : assessmentType === "mpq"
                   ? "✅ Please answer each statement with Yes or No based on how it applies to you."
                   : "✅ Please answer each question with Yes or No based on your experience."
                 }
               </p>
             </div>
+
+            {isEPDS && (
+              <div className="mt-3 p-3 rounded-lg bg-amber-50 border border-amber-200">
+                <p className="text-[10px] text-amber-700 font-medium">
+                  ⚠️ Questions marked with * are reverse scored. Question 10 screens for suicidal thoughts.
+                </p>
+              </div>
+            )}
 
             <div className="mt-4 grid grid-cols-2 gap-2 text-[11.5px]">
               <div className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-2 border border-gray-100">
@@ -935,19 +939,13 @@ export default function AssessmentPage() {
                 data-index={blockIdx}
                 className="mb-10 md:mb-14 scroll-mt-4 md:scroll-mt-6"
               >
-                {/* <p className={`text-[10px] md:text-[12.5px] font-semibold uppercase tracking-wide mb-1 md:mb-1.5 ${themeAccent.textLight}`}>
-                  Questions {blockIdx * 20 + 1} - {blockIdx * 20 + block.length}
-                </p>
-                <h2 className={`font-brand text-lg md:text-xl font-semibold mb-4 md:mb-6 ${themeAccent.text}`}>
-                  {subheadingInfo?.name || "Assessment"}
-                </h2> */}
-
                 <div className="space-y-5 md:space-y-6">
                   {block.map((question) => {
                     const selected = answers[question.id];
                     const saveState = saveStatus[question.id];
                     const hasAnswer = selected !== undefined && selected !== null && String(selected).trim() !== "";
                     runningIndex += 1;
+                    const isReverse = isEPDS && isEPDSReverseScored(question);
 
                     return (
                       <div
@@ -971,23 +969,37 @@ export default function AssessmentPage() {
                           }`}
                         >
                           {runningIndex}
+                          {isEPDS && isReverse && (
+                            <span className="absolute -top-1 -right-1 text-[8px] bg-amber-500 text-white rounded-full w-4 h-4 flex items-center justify-center">
+                              *
+                            </span>
+                          )}
                         </div>
 
                         {/* Question text - English */}
                         <p className="text-[12px] md:text-[14.5px] font-medium text-ink mb-1 md:mb-1.5 text-center px-2">
                           {question.question_text}
+                          {isEPDS && isReverse && (
+                            <span className="text-amber-500 ml-1 text-[13px]">*</span>
+                          )}
                         </p>
 
-                        {/* Question text - Tamil (always show if available) */}
+                        {/* Question text - Tamil */}
                         {question.question_text_ta && question.question_text_ta.trim() !== "" && (
                           <p className="text-[11px] md:text-[13px] text-ink-soft mb-3 md:mb-4 text-center px-2 font-bold leading-relaxed border-t border-gray-100 pt-2 mt-2">
                             {question.question_text_ta}
                           </p>
                         )}
 
+                        {/* EPDS reverse score indicator */}
+                        {isEPDS && isReverse && (
+                          <p className="text-[9px] text-amber-600 text-center mb-2">
+                            ⚡ Reverse scored (higher score = more negative)
+                          </p>
+                        )}
+
                         {/* Conditional answer UI based on assessment type */}
                         {assessmentType === "sct" ? (
-                          /* SCT - Text Input */
                           <div className="px-2">
                             <div className="relative">
                               <textarea
@@ -1013,70 +1025,93 @@ export default function AssessmentPage() {
                               </div>
                             )}
                           </div>
-) : assessmentType === "likert" ? (
-  /* PHQ / GHQ - 4-option rating scale with Tamil translations */
-  <div className="flex flex-col gap-2 px-2">
-    {(question.options || []).map((option, optIdx) => {
-      const isSelected = selected === optIdx;
-      const tamilText = getTamilTranslation(option);
-      
-      return (
-        <button
-          key={option}
-          onClick={() => handleLikertAnswer(question.id, option, optIdx)}
-          className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[11.5px] md:text-[13px] font-medium border transition-all text-left ${
-            isSelected
-              ? "bg-sky-600 border-sky-600 text-white shadow-md"
-              : "bg-[#FCFDFC] border-line text-ink hover:border-sky-300 hover:bg-sky-50"
-          } ${saveState === 'saving' && isSelected ? "opacity-70" : ""}`}
-        >
-          <div className="flex items-center gap-3">
-            <span className="w-5 h-5 rounded-full border flex items-center justify-center text-[10px] shrink-0 border-gray-300 text-gray-400">
-              {optIdx + 1}
-            </span>
-            <div className="flex items-center gap-2">
-              <span>{option}</span>
-              {tamilText && (
-                <span className={`text-[10px] md:text-[11px] ${isSelected ? "text-sky-100" : "text-gray-500"} border-l ${isSelected ? "border-sky-300" : "border-gray-300"} pl-2`}>
-                  {tamilText}
-                </span>
-              )}
-            </div>
-          </div>
-          {isSelected && (
-            <CheckCircle2 size={16} className="text-white/80" />
-          )}
-        </button>
-      );
-    })}
-  </div>
-) :  (
-  /* EPI / MPQ - Yes/No Buttons with Tamil translations */
-  <div className="flex flex-wrap justify-center gap-3">
-    {(question.options || ["YES", "NO"]).map((option) => {
-      const tamilText = getTamilTranslation(option);
-      
-      return (
-        <button
-          key={option}
-          onClick={() => handleAnswer(question.id, option)}
-          className={`px-5 md:px-7 py-2 md:py-2.5 rounded-full text-[11px] md:text-[13px] font-bold border transition-all capitalize inline-flex items-center gap-2 ${
-            selected === option
-              ? `${themeAccent.bg} border-transparent text-white shadow-md scale-105`
-              : "bg-[#FCFDFC] border-line text-ink hover:border-coral-300 hover:bg-coral-50"
-          } ${saveState === 'saving' && selected === option ? "opacity-70" : ""}`}
-        >
-          <span>{option.toLowerCase() === "yes" ? "Yes" : option.toLowerCase() === "no" ? "No" : option}</span>
-          {tamilText && (
-            <span className={`text-[10px] md:text-[11px] ${selected === option ? "text-white/80" : "text-gray-500"} border-l ${selected === option ? "border-white/30" : "border-gray-300"} pl-2`}>
-              {tamilText}
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-)}
+                        ) : assessmentType === "likert" ? (
+                          <div className="flex flex-col gap-2 px-2">
+                            {(question.options || []).map((option, optIdx) => {
+                              let isSelected = false;
+                              let displayScore = optIdx;
+
+                              if (isEPDS) {
+                                // Always derive from the API's own scores array
+                                displayScore = getEPDSScoreForOption(question, optIdx);
+                                isSelected = String(selected) === String(displayScore);
+                              } else {
+                                const scoreValue = question.scores && question.scores[optIdx] !== undefined
+                                  ? question.scores[optIdx]
+                                  : optIdx + 1;
+                                displayScore = scoreValue;
+                                isSelected = String(selected) === String(scoreValue);
+                              }
+
+                              const tamilText = getTamilTranslation(option);
+
+                              return (
+                                <button
+                                  key={option}
+                                  onClick={() => {
+                                    if (isEPDS) {
+                                      handleEPDSLikertAnswer(question.id, question, optIdx);
+                                    } else {
+                                      handleLikertAnswer(question.id, option, optIdx, question.scores);
+                                    }
+                                  }}
+                                  className={`w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[11.5px] md:text-[13px] font-medium border transition-all text-left ${
+                                    isSelected
+                                      ? "bg-sky-600 border-sky-600 text-white shadow-md"
+                                      : "bg-[#FCFDFC] border-line text-ink hover:border-sky-300 hover:bg-sky-50"
+                                  } ${saveState === 'saving' && isSelected ? "opacity-70" : ""}`}
+                                >
+                                  <div className="flex items-center gap-3">
+                                    <span className="w-5 h-5 rounded-full border flex items-center justify-center text-[10px] shrink-0 border-gray-300 text-gray-400">
+                                      {optIdx + 1}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                      <span>{option}</span>
+                                      {tamilText && (
+                                        <span className={`text-[10px] md:text-[11px] ${isSelected ? "text-sky-100" : "text-gray-500"} border-l ${isSelected ? "border-sky-300" : "border-gray-300"} pl-2`}>
+                                          {tamilText}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
+                                  {isSelected && (
+                                    <CheckCircle2 size={16} className="text-white/80" />
+                                  )}
+                                  {isEPDS && (
+                                    <span className={`text-[9px] font-mono ${isSelected ? "text-sky-100" : "text-slate-400"}`}>
+                                      Score: {displayScore}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap justify-center gap-3">
+                            {(question.options || ["YES", "NO"]).map((option) => {
+                              const tamilText = getTamilTranslation(option);
+
+                              return (
+                                <button
+                                  key={option}
+                                  onClick={() => handleAnswer(question.id, option)}
+                                  className={`px-5 md:px-7 py-2 md:py-2.5 rounded-full text-[11px] md:text-[13px] font-bold border transition-all capitalize inline-flex items-center gap-2 ${
+                                    selected === option
+                                      ? `${themeAccent.bg} border-transparent text-white shadow-md scale-105`
+                                      : "bg-[#FCFDFC] border-line text-ink hover:border-coral-300 hover:bg-coral-50"
+                                  } ${saveState === 'saving' && selected === option ? "opacity-70" : ""}`}
+                                >
+                                  <span>{option.toLowerCase() === "yes" ? "Yes" : option.toLowerCase() === "no" ? "No" : option}</span>
+                                  {tamilText && (
+                                    <span className={`text-[10px] md:text-[11px] ${selected === option ? "text-white/80" : "text-gray-500"} border-l ${selected === option ? "border-white/30" : "border-gray-300"} pl-2`}>
+                                      {tamilText}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
 
                         {/* Save status indicator */}
                         {saveState && (
@@ -1184,7 +1219,7 @@ export default function AssessmentPage() {
         </div>
       </div>
 
-      {/* Completion popup — shown when there's a next category */}
+      {/* Completion popup */}
       {completionInfo && (
         <CategoryCompleteModal
           completedName={completionInfo.completedName}
@@ -1197,7 +1232,7 @@ export default function AssessmentPage() {
         />
       )}
 
-      {/* Thank You Modal — shown after all categories are completed */}
+      {/* Thank You Modal */}
       {showThankYou && (
         <ThankYouModal onClose={handleThankYouClose} />
       )}

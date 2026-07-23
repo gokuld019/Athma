@@ -1,37 +1,77 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Search,
   RefreshCw,
   ChevronRight,
-  ChevronLeft,
   Users,
   User,
   Mail,
   Phone,
   Calendar,
   Package,
-  CheckCircle2,
   Circle,
-  Clock,
   XCircle,
   ArrowLeft,
   ListChecks,
   BadgeCheck,
   X,
   Check,
-  Sparkles,
-  Download,
-  Loader2,
-  Activity,
-  Heart,
-  Brain,
-  Stethoscope,
-  Square,
-  CheckSquare,
 } from "lucide-react";
+
+// Import BSI Report Card
+import BSIReportCard, { getBSITamilTranslation } from "./BSIReportCard";
+
+// Import PSS Report Card
+import PSSReportCard from "./PSSReportCard";
+
+// Import BAI Report Card
+import BAIReportCard from "./BAIReportCard";
+
+// Import BDI Report Card
+import BDIReportCard from "./BDIReportCard";
+
+// Import GHQ-28 Report Card
+import GHQ28ReportCard from "./GHQ28ReportCard";
+
+// Import MPQ Report Card
+import MPQReportCard from "./MPQReportCard";
+
+// Import PHQ-9 Report Card
+import PHQ9ReportCard from "./PHQ9ReportCard";
+
+// Import SCT Report Card and Scoring Section
+import SCTReportCard, { SCTScoringSection } from "./SCTReportCard";
+
+// Import EPI Report Card
+import EpiReportCard from "./EpiReportCard";
+
+// Import IPDE Report Card
+import IPDEReportCard from "./IPDEReportCard";
+
+// Import JOBS Report Card
+import JOBSReportCard from "./JOBSReportCard";
+
+// Import EPDS Report Card
+import EPDSReportCard from "./EPDSReportCard";
+
+// Import shared components
+import {
+  LoadingState,
+  ErrorState,
+  detectAssessmentType,
+  AssessmentBadge,
+  StatusBadge,
+  ProgressPill,
+  StatusIcon,
+  MiniStat,
+  SummaryStat,
+  AnswerChip,
+  EmptyState,
+  formatEpiValue,
+} from "./AssessmentComponents";
 
 const API_BASE_URL = "https://api.crazystory.in/api/admin";
 
@@ -45,152 +85,6 @@ const getAuthHeaders = () => {
     Authorization: `${tokenType} ${token}`,
   };
 };
-
-// ---- Assessment Type Configurations ----
-const MPQ_SCALE_CONFIG = {
-  K: {
-    name: "Defensiveness",
-    totalQuestions: 12,
-    description: "Measures test-taking attitude and defensiveness",
-  },
-  SC: {
-    name: "Schizophrenia",
-    totalQuestions: 18,
-    description: "Measures unusual thinking and detachment from reality",
-  },
-  PA: {
-    name: "Paranoia",
-    totalQuestions: 18,
-    description: "Measures suspiciousness and paranoid thoughts",
-  },
-  MA: {
-    name: "Hypomania",
-    totalQuestions: 17,
-    description: "Measures energy, activity level, and impulsivity",
-  },
-  D: {
-    name: "Depression",
-    totalQuestions: 15,
-    description: "Measures depressive symptoms",
-  },
-  A: {
-    name: "Anxiety",
-    totalQuestions: 26,
-    description: "Measures anxiety symptoms",
-  },
-  HY: {
-    name: "Hysteria",
-    totalQuestions: 8,
-    description: "Measures somatic complaints and conversion symptoms",
-  },
-  PD: {
-    name: "Psychopathic Deviate",
-    totalQuestions: 34,
-    description: "Measures antisocial tendencies and rule-breaking",
-  },
-  REPRESSOR_SENSITISER: {
-    name: "Repressor-Sensitiser",
-    totalQuestions: 41,
-    description: "Measures coping style (repressor vs sensitiser)",
-  },
-};
-
-const PHQ9_SEVERITY_CONFIG = {
-  "None-minimal": { range: [0, 4], color: "#1F6D48", description: "No significant depressive symptoms" },
-  "Mild": { range: [5, 9], color: "#84CC16", description: "Mild depression - Monitor and reassess" },
-  "Moderate": { range: [10, 14], color: "#E85720", description: "Moderate depression - Consider professional help" },
-  "Moderately Severe": { range: [15, 19], color: "#DC2626", description: "Moderately severe depression - Professional help recommended" },
-  "Severe": { range: [20, 27], color: "#991B1B", description: "Severe depression - Immediate professional help needed" },
-};
-
-const GHQ28_SCALE_CONFIG = {
-  A: { name: "Somatic Symptoms", color: "#E85720", maxScore: 21, description: "Physical symptoms of psychological distress" },
-  B: { name: "Anxiety & Insomnia", color: "#2F4479", maxScore: 21, description: "Anxiety and sleep-related symptoms" },
-  C: { name: "Social Dysfunction", color: "#7C3AED", maxScore: 21, description: "Social functioning and daily activities" },
-  D: { name: "Severe Depression", color: "#DC2626", maxScore: 21, description: "Severe depressive symptoms and suicidal ideation" },
-};
-
-// ---- Helper Functions ----
-function formatEpiValue(value) {
-  if (value === null || value === undefined) return value;
-  if (typeof value === "object") {
-    if (value.personality_type) return value.personality_type;
-    const parts = [];
-    if (value.e_score !== undefined) parts.push(`E:${value.e_score}`);
-    if (value.n_score !== undefined) parts.push(`N:${value.n_score}`);
-    if (value.l_score !== undefined) parts.push(`L:${value.l_score}`);
-    return parts.length > 0 ? parts.join(" ") : JSON.stringify(value);
-  }
-  return value;
-}
-
-function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (document.querySelector(`script[src="${src}"]`)) return resolve();
-    const script = document.createElement("script");
-    script.src = src;
-    script.onload = resolve;
-    script.onerror = () => reject(new Error(`Failed to load script: ${src}`));
-    document.body.appendChild(script);
-  });
-}
-
-async function loadPdfLibs() {
-  if (!window.jspdf) {
-    await loadScript("https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js");
-  }
-}
-
-function getMPQScaleColor(level) {
-  switch (level) {
-    case "High": return [232, 87, 32];
-    case "Medium": return [47, 68, 121];
-    case "Low": return [31, 109, 72];
-    default: return [100, 100, 100];
-  }
-}
-
-function getMPQScaleColorHex(level) {
-  switch (level) {
-    case "High": return "#E85720";
-    case "Medium": return "#2F4479";
-    case "Low": return "#1F6D48";
-    default: return "#64748B";
-  }
-}
-
-function getPHQ9SeverityColor(label) {
-  const config = PHQ9_SEVERITY_CONFIG[label];
-  return config ? config.color : "#64748B";
-}
-
-function getPHQ9ScoreColor(score) {
-  if (score === 0) return "#CBD5E1";
-  if (score === 1) return "#84CC16";
-  if (score === 2) return "#E85720";
-  if (score === 3) return "#DC2626";
-  return "#CBD5E1";
-}
-
-function getGHQ28AnswerColor(value) {
-  const val = parseInt(value);
-  if (val === 0) return "#CBD5E1";
-  if (val === 1) return "#84CC16";
-  if (val === 2) return "#E85720";
-  if (val === 3) return "#DC2626";
-  return "#CBD5E1";
-}
-
-// ---- Detect assessment type from subheading name ----
-function detectAssessmentType(name) {
-  const n = (name || "").toLowerCase();
-  return {
-    isMpq: n.includes("mpq") || n.includes("multiphasic"),
-    isPhq9: n.includes("phq") || n.includes("phq-9") || n.includes("phq9"),
-    isSct: n.includes("sct") || n.includes("sentence completion"),
-    isGhq28: n.includes("ghq") || n.includes("ghq-28") || n.includes("ghq28") || n.includes("general health"),
-  };
-}
 
 function AdminAssessmentsInner() {
   const router = useRouter();
@@ -247,6 +141,34 @@ function AdminAssessmentsInner() {
   const [ghq28Report, setGhq28Report] = useState(null);
   const [ghq28Loading, setGhq28Loading] = useState(false);
   const [ghq28Error, setGhq28Error] = useState(null);
+
+  const [bdiReport, setBdiReport] = useState(null);
+  const [bdiLoading, setBdiLoading] = useState(false);
+  const [bdiError, setBdiError] = useState(null);
+
+  const [baiReport, setBaiReport] = useState(null);
+  const [baiLoading, setBaiLoading] = useState(false);
+  const [baiError, setBaiError] = useState(null);
+
+  const [pssReport, setPssReport] = useState(null);
+  const [pssLoading, setPssLoading] = useState(false);
+  const [pssError, setPssError] = useState(null);
+
+  const [bsiReport, setBsiReport] = useState(null);
+  const [bsiLoading, setBsiLoading] = useState(false);
+  const [bsiError, setBsiError] = useState(null);
+
+  const [ipdeReport, setIpdeReport] = useState(null);
+  const [ipdeLoading, setIpdeLoading] = useState(false);
+  const [ipdeError, setIpdeError] = useState(null);
+
+  const [jobsReport, setJobsReport] = useState(null);
+  const [jobsLoading, setJobsLoading] = useState(false);
+  const [jobsError, setJobsError] = useState(null);
+
+  const [epdsReport, setEpdsReport] = useState(null);
+  const [epdsLoading, setEpdsLoading] = useState(false);
+  const [epdsError, setEpdsError] = useState(null);
 
   // SCT states
   const [sctQuestionsAnswers, setSctQuestionsAnswers] = useState(null);
@@ -458,8 +380,6 @@ function AdminAssessmentsInner() {
     }
   }, []);
 
-  // Silent refresh — updates sctReport without flipping the loading state,
-  // so the report card badge/scale scores update instantly after a toggle.
   const refreshSctReportSilently = useCallback(async (userId) => {
     try {
       const response = await fetch(`${API_BASE_URL}/assessments/sct-report/${userId}`, {
@@ -500,15 +420,193 @@ function AdminAssessmentsInner() {
     }
   }, []);
 
+  const fetchBdiReport = useCallback(async (userId) => {
+    setBdiLoading(true);
+    setBdiError(null);
+    setBdiReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/bdi-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch BDI report");
+      const result = await response.json();
+      if (result.status === "success") {
+        setBdiReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load BDI report");
+      }
+    } catch (err) {
+      setBdiError(err.message);
+      console.error("Error fetching BDI report:", err);
+    } finally {
+      setBdiLoading(false);
+    }
+  }, []);
+
+  const fetchBaiReport = useCallback(async (userId) => {
+    setBaiLoading(true);
+    setBaiError(null);
+    setBaiReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/bai-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch BAI report");
+      const result = await response.json();
+      if (result.status === "success") {
+        setBaiReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load BAI report");
+      }
+    } catch (err) {
+      setBaiError(err.message);
+      console.error("Error fetching BAI report:", err);
+    } finally {
+      setBaiLoading(false);
+    }
+  }, []);
+
+  const fetchPssReport = useCallback(async (userId) => {
+    setPssLoading(true);
+    setPssError(null);
+    setPssReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/pss-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch PSS report");
+      const result = await response.json();
+      if (result.status === "success") {
+        setPssReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load PSS report");
+      }
+    } catch (err) {
+      setPssError(err.message);
+      console.error("Error fetching PSS report:", err);
+    } finally {
+      setPssLoading(false);
+    }
+  }, []);
+
+  const fetchBsiReport = useCallback(async (userId) => {
+    setBsiLoading(true);
+    setBsiError(null);
+    setBsiReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/bsi-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch BSI report");
+      const result = await response.json();
+      if (result.status === "success") {
+        setBsiReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load BSI report");
+      }
+    } catch (err) {
+      setBsiError(err.message);
+      console.error("Error fetching BSI report:", err);
+    } finally {
+      setBsiLoading(false);
+    }
+  }, []);
+
+  const fetchIpdeReport = useCallback(async (userId) => {
+    setIpdeLoading(true);
+    setIpdeError(null);
+    setIpdeReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/ipde-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch IPDE report");
+      const result = await response.json();
+      console.log("IPDE raw response:", result);
+
+      const isSuccess =
+        result.status === "success" ||
+        result.status === true ||
+        result.success === true;
+
+      if (isSuccess && result.data) {
+        setIpdeReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load IPDE report");
+      }
+    } catch (err) {
+      setIpdeError(err.message);
+      console.error("Error fetching IPDE report:", err);
+    } finally {
+      setIpdeLoading(false);
+    }
+  }, []);
+
+  const fetchJobsReport = useCallback(async (userId) => {
+    setJobsLoading(true);
+    setJobsError(null);
+    setJobsReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/jobs-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch JOBS report");
+      const result = await response.json();
+      console.log("JOBS raw response:", result);
+      
+      if (result.success && result.data) {
+        setJobsReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load JOBS report");
+      }
+    } catch (err) {
+      setJobsError(err.message);
+      console.error("Error fetching JOBS report:", err);
+    } finally {
+      setJobsLoading(false);
+    }
+  }, []);
+
+  const fetchEpdsReport = useCallback(async (userId) => {
+    console.log("fetchEpdsReport called for userId:", userId);
+    setEpdsLoading(true);
+    setEpdsError(null);
+    setEpdsReport(null);
+    try {
+      const response = await fetch(`${API_BASE_URL}/assessments/epds-report/${userId}`, {
+        method: "GET",
+        headers: getAuthHeaders(),
+      });
+      if (!response.ok) throw new Error("Failed to fetch EPDS report");
+      const result = await response.json();
+      console.log("EPDS raw response:", result);
+      
+      if (result.success && result.data) {
+        setEpdsReport(result.data);
+      } else {
+        throw new Error(result.message || "Failed to load EPDS report");
+      }
+    } catch (err) {
+      setEpdsError(err.message);
+      console.error("Error fetching EPDS report:", err);
+    } finally {
+      setEpdsLoading(false);
+    }
+  }, []);
+
   const updateSctAnswer = async (answerId, questionId) => {
-    // Optimistic UI update - toggle immediately
     setUpdatingAnswerIds(prev => {
       const next = new Set(prev);
       next.add(answerId);
       return next;
     });
 
-    // Optimistically update the checklist state
     setSctQuestionsAnswers(prev => {
       if (!prev) return prev;
       return {
@@ -523,7 +621,6 @@ function AdminAssessmentsInner() {
       };
     });
 
-    // Optimistically update the report card's answers array + negative/positive/scored counts
     setSctReport(prev => {
       if (!prev?.sct_report) return prev;
       const wasNull = prev.sct_report.answers?.find(a => a.answer_id === answerId)?.score_value === null;
@@ -550,13 +647,11 @@ function AdminAssessmentsInner() {
       });
       if (!response.ok) throw new Error("Failed to update answer");
 
-      // Reconcile with the server's actual computed scale scores / totals
       if (selectedUserId) {
         refreshSctReportSilently(selectedUserId);
       }
     } catch (err) {
       console.error("Error updating SCT answer:", err);
-      // Revert optimistic updates on error
       await fetchSctQuestionsAnswers(selectedUserId);
       await refreshSctReportSilently(selectedUserId);
     } finally {
@@ -572,7 +667,6 @@ function AdminAssessmentsInner() {
     fetchPatientList();
   }, [fetchPatientList]);
 
-  // ---- Re-fetch on view/URL changes (covers refresh, back/forward, direct link) ----
   useEffect(() => {
     if (view === "patient" && selectedUserId) {
       fetchPatientDetail(selectedUserId);
@@ -581,23 +675,31 @@ function AdminAssessmentsInner() {
     if (view === "subheading" && selectedUserId && selectedSubheadingId) {
       fetchSubheadingDetail(selectedSubheadingId, selectedUserId);
 
-      // Reset all reports before refetching
       setEpiReport(null); setEpiError(null); setFullReport(null);
       setMpqReport(null); setMpqError(null);
       setPhq9Report(null); setPhq9Error(null);
       setSctReport(null); setSctError(null);
       setGhq28Report(null); setGhq28Error(null);
+      setBdiReport(null); setBdiError(null);
+      setBaiReport(null); setBaiError(null);
+      setPssReport(null); setPssError(null);
+      setBsiReport(null); setBsiError(null);
+      setIpdeReport(null); setIpdeError(null);
+      setJobsReport(null); setJobsError(null);
+      setEpdsReport(null); setEpdsError(null);
       setSctQuestionsAnswers(null);
       setUpdatingAnswerIds(new Set());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, selectedUserId, selectedSubheadingId]);
 
-  // Once subheadingData loads (in "subheading" view), fetch the correct report type
   useEffect(() => {
     if (view !== "subheading" || !subheadingData || !selectedUserId) return;
     const { subheading, is_epi } = subheadingData;
     const assessmentTypes = detectAssessmentType(subheading?.name);
+
+    console.log("Assessment types detected:", assessmentTypes);
+    console.log("Subheading name:", subheading?.name);
 
     if (is_epi) {
       fetchEpiReport(selectedUserId);
@@ -610,6 +712,21 @@ function AdminAssessmentsInner() {
       fetchSctQuestionsAnswers(selectedUserId);
     } else if (assessmentTypes.isGhq28) {
       fetchGhq28Report(selectedUserId);
+    } else if (assessmentTypes.isBdi) {
+      fetchBdiReport(selectedUserId);
+    } else if (assessmentTypes.isBai) {
+      fetchBaiReport(selectedUserId);
+    } else if (assessmentTypes.isPss) {
+      fetchPssReport(selectedUserId);
+    } else if (assessmentTypes.isBsi) {
+      fetchBsiReport(selectedUserId);
+    } else if (assessmentTypes.isIpde) {
+      fetchIpdeReport(selectedUserId);
+    } else if (assessmentTypes.isJobs) {
+      fetchJobsReport(selectedUserId);
+    } else if (assessmentTypes.isEpds) {
+      console.log("Fetching EPDS report for user:", selectedUserId);
+      fetchEpdsReport(selectedUserId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, subheadingData, selectedUserId]);
@@ -619,7 +736,7 @@ function AdminAssessmentsInner() {
     updateUrl({ aview: "patient", auserId: userId, asubId: null, apkgId: null });
   };
 
-  const openSubheading = (subheadingId, packageId /*, isEpi, assessmentTypes */) => {
+  const openSubheading = (subheadingId, packageId) => {
     updateUrl({ aview: "subheading", asubId: subheadingId, apkgId: packageId });
   };
 
@@ -629,6 +746,11 @@ function AdminAssessmentsInner() {
     setEpiReport(null); setFullReport(null);
     setMpqReport(null); setPhq9Report(null);
     setSctReport(null); setGhq28Report(null);
+    setBdiReport(null); setBaiReport(null);
+    setPssReport(null); setBsiReport(null);
+    setIpdeReport(null);
+    setJobsReport(null);
+    setEpdsReport(null);
     setSctQuestionsAnswers(null);
     setUpdatingAnswerIds(new Set());
   };
@@ -639,6 +761,11 @@ function AdminAssessmentsInner() {
     setEpiReport(null); setFullReport(null);
     setMpqReport(null); setPhq9Report(null);
     setSctReport(null); setGhq28Report(null);
+    setBdiReport(null); setBaiReport(null);
+    setPssReport(null); setBsiReport(null);
+    setIpdeReport(null);
+    setJobsReport(null);
+    setEpdsReport(null);
     setSctQuestionsAnswers(null);
     setUpdatingAnswerIds(new Set());
   };
@@ -789,11 +916,40 @@ function AdminAssessmentsInner() {
             ghq28Loading={ghq28Loading}
             ghq28Error={ghq28Error}
             onRetryGhq28={() => fetchGhq28Report(selectedUserId)}
+            bdiReport={bdiReport}
+            bdiLoading={bdiLoading}
+            bdiError={bdiError}
+            onRetryBdi={() => fetchBdiReport(selectedUserId)}
+            baiReport={baiReport}
+            baiLoading={baiLoading}
+            baiError={baiError}
+            onRetryBai={() => fetchBaiReport(selectedUserId)}
+            pssReport={pssReport}
+            pssLoading={pssLoading}
+            pssError={pssError}
+            onRetryPss={() => fetchPssReport(selectedUserId)}
+            bsiReport={bsiReport}
+            bsiLoading={bsiLoading}
+            bsiError={bsiError}
+            onRetryBsi={() => fetchBsiReport(selectedUserId)}
+            ipdeReport={ipdeReport}
+            ipdeLoading={ipdeLoading}
+            ipdeError={ipdeError}
+            onRetryIpde={() => fetchIpdeReport(selectedUserId)}
+            jobsReport={jobsReport}
+            jobsLoading={jobsLoading}
+            jobsError={jobsError}
+            onRetryJobs={() => fetchJobsReport(selectedUserId)}
+            epdsReport={epdsReport}
+            epdsLoading={epdsLoading}
+            epdsError={epdsError}
+            onRetryEpds={() => fetchEpdsReport(selectedUserId)}
             sctQuestionsAnswers={sctQuestionsAnswers}
             sctQALoading={sctQALoading}
             sctQAError={sctQAError}
             onSctToggle={handleSctCheckboxToggle}
             updatingAnswerIds={updatingAnswerIds}
+            selectedSubheadingId={selectedSubheadingId}
           />
         )}
       </div>
@@ -980,7 +1136,7 @@ function PatientDetailView({ loading, error, data, onOpenSubheading, onRetry, fo
               return (
                 <button
                   key={sh.subheading_id}
-                  onClick={() => onOpenSubheading(sh.subheading_id, pkg.package_id, sh.is_epi, assessmentTypes)}
+                  onClick={() => onOpenSubheading(sh.subheading_id, pkg.package_id)}
                   className="w-full flex items-center gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 md:py-3.5 hover:bg-[#2F4479]/[0.03] transition-colors text-left"
                 >
                   <StatusIcon status={sh.status} />
@@ -992,6 +1148,13 @@ function PatientDetailView({ loading, error, data, onOpenSubheading, onRetry, fo
                       {assessmentTypes.isPhq9 && <AssessmentBadge label="PHQ-9" color="bg-[#1F6D48]/10 text-[#1F6D48]" />}
                       {assessmentTypes.isSct && <AssessmentBadge label="SCT" color="bg-purple-100 text-purple-700" />}
                       {assessmentTypes.isGhq28 && <AssessmentBadge label="GHQ-28" color="bg-amber-100 text-amber-700" />}
+                      {assessmentTypes.isBdi && <AssessmentBadge label="BDI" color="bg-blue-100 text-blue-700" />}
+                      {assessmentTypes.isBai && <AssessmentBadge label="BAI" color="bg-cyan-100 text-cyan-700" />}
+                      {assessmentTypes.isPss && <AssessmentBadge label="PSS" color="bg-orange-100 text-orange-700" />}
+                      {assessmentTypes.isBsi && <AssessmentBadge label="BSI" color="bg-red-100 text-red-700" />}
+                      {assessmentTypes.isIpde && <AssessmentBadge label="IPDE" color="bg-indigo-100 text-indigo-700" />}
+                      {assessmentTypes.isJobs && <AssessmentBadge label="JOBS" color="bg-emerald-100 text-emerald-700" />}
+                      {assessmentTypes.isEpds && <AssessmentBadge label="EPDS" color="bg-pink-100 text-pink-700" />}
                     </div>
                     <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-0.5 line-clamp-1">
                       {sh.answered}/{sh.total_questions} answered
@@ -1023,7 +1186,15 @@ function SubheadingDetailView({
   phq9Report, phq9Loading, phq9Error, onRetryPhq9,
   sctReport, sctLoading, sctError, onRetrySct,
   ghq28Report, ghq28Loading, ghq28Error, onRetryGhq28,
+  bdiReport, bdiLoading, bdiError, onRetryBdi,
+  baiReport, baiLoading, baiError, onRetryBai,
+  pssReport, pssLoading, pssError, onRetryPss,
+  bsiReport, bsiLoading, bsiError, onRetryBsi,
+  ipdeReport, ipdeLoading, ipdeError, onRetryIpde,
+  jobsReport, jobsLoading, jobsError, onRetryJobs,
+  epdsReport, epdsLoading, epdsError, onRetryEpds,
   sctQuestionsAnswers, sctQALoading, sctQAError, onSctToggle, updatingAnswerIds,
+  selectedSubheadingId,
 }) {
   if (loading) return <LoadingState label="Loading responses..." />;
   if (error) return <ErrorState message={error} onRetry={onRetry} />;
@@ -1031,6 +1202,11 @@ function SubheadingDetailView({
 
   const { subheading, summary, questions, is_epi } = data;
   const assessmentTypes = detectAssessmentType(subheading.name);
+
+  // Debug logging
+  console.log("Subheading Detail - assessmentTypes:", assessmentTypes);
+  console.log("Subheading Detail - isEpds:", assessmentTypes.isEpds);
+  console.log("Subheading Detail - subheading name:", subheading.name);
 
   return (
     <div className="space-y-4 sm:space-y-5 md:space-y-6">
@@ -1045,6 +1221,13 @@ function SubheadingDetailView({
               {assessmentTypes.isPhq9 && <AssessmentBadge label="PHQ-9" color="bg-[#1F6D48]/10 text-[#1F6D48]" />}
               {assessmentTypes.isSct && <AssessmentBadge label="SCT" color="bg-purple-100 text-purple-700" />}
               {assessmentTypes.isGhq28 && <AssessmentBadge label="GHQ-28" color="bg-amber-100 text-amber-700" />}
+              {assessmentTypes.isBdi && <AssessmentBadge label="BDI" color="bg-blue-100 text-blue-700" />}
+              {assessmentTypes.isBai && <AssessmentBadge label="BAI" color="bg-cyan-100 text-cyan-700" />}
+              {assessmentTypes.isPss && <AssessmentBadge label="PSS" color="bg-orange-100 text-orange-700" />}
+              {assessmentTypes.isBsi && <AssessmentBadge label="BSI" color="bg-red-100 text-red-700" />}
+              {assessmentTypes.isIpde && <AssessmentBadge label="IPDE" color="bg-indigo-100 text-indigo-700" />}
+              {assessmentTypes.isJobs && <AssessmentBadge label="JOBS" color="bg-emerald-100 text-emerald-700" />}
+              {assessmentTypes.isEpds && <AssessmentBadge label="EPDS" color="bg-pink-100 text-pink-700" />}
             </div>
             <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-500 mt-0.5">{subheading.description}</p>
           </div>
@@ -1078,6 +1261,37 @@ function SubheadingDetailView({
         />
       )}
       {assessmentTypes.isGhq28 && <GHQ28ReportCard loading={ghq28Loading} error={ghq28Error} report={ghq28Report} onRetry={onRetryGhq28} />}
+      {assessmentTypes.isBdi && <BDIReportCard loading={bdiLoading} error={bdiError} report={bdiReport} onRetry={onRetryBdi} />}
+      {assessmentTypes.isBai && <BAIReportCard loading={baiLoading} error={baiError} report={baiReport} onRetry={onRetryBai} />}
+      {assessmentTypes.isPss && <PSSReportCard loading={pssLoading} error={pssError} report={pssReport} onRetry={onRetryPss} />}
+      {assessmentTypes.isBsi && <BSIReportCard loading={bsiLoading} error={bsiError} report={bsiReport} onRetry={onRetryBsi} />}
+      {assessmentTypes.isIpde && (
+        <IPDEReportCard 
+          loading={ipdeLoading} 
+          error={ipdeError} 
+          report={ipdeReport} 
+          onRetry={onRetryIpde} 
+          subheadingId={selectedSubheadingId}
+        />
+      )}
+      {assessmentTypes.isJobs && (
+        <JOBSReportCard 
+          loading={jobsLoading} 
+          error={jobsError} 
+          report={jobsReport} 
+          onRetry={onRetryJobs} 
+          subheadingId={selectedSubheadingId}
+        />
+      )}
+      {assessmentTypes.isEpds && (
+        <EPDSReportCard 
+          loading={epdsLoading} 
+          error={epdsError} 
+          report={epdsReport} 
+          onRetry={onRetryEpds} 
+          subheadingId={selectedSubheadingId}
+        />
+      )}
 
       {/* SCT Scoring Section */}
       {assessmentTypes.isSct && (
@@ -1090,8 +1304,8 @@ function SubheadingDetailView({
         />
       )}
 
-      {/* Questions List - Show for non-SCT assessments */}
-      {!assessmentTypes.isSct && (
+      {/* Questions List - Show for non-SCT, non-IPDE, non-JOBS, and non-EPDS assessments */}
+      {!assessmentTypes.isSct && !assessmentTypes.isIpde && !assessmentTypes.isJobs && !assessmentTypes.isEpds && (
         <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
           <div className="px-3 sm:px-4 md:px-5 py-2.5 sm:py-3 border-b border-slate-100">
             <p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-700">Question Responses</p>
@@ -1126,1483 +1340,4 @@ function SubheadingDetailView({
       )}
     </div>
   );
-}
-
-// ============================================================================
-// SCT Scoring Section Component - Instant loading
-// ============================================================================
-function SCTScoringSection({ questionsAnswers, loading, error, onToggle, updatingAnswerIds }) {
-  if (loading) return <LoadingState label="Loading SCT questions..." />;
-  if (error) return <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 p-4 sm:p-6"><ErrorState message={error} /></div>;
-  if (!questionsAnswers) return null;
-
-  const { questions_answers } = questionsAnswers;
-  const scoredCount = questions_answers.filter(qa => qa.score_value !== null).length;
-  const totalCount = questions_answers.length;
-
-  return (
-    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100">
-        <div>
-          <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">SCT Question Scoring</p>
-          <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-0.5">
-            {scoredCount} of {totalCount} questions scored · Click checkbox to toggle scoring (instant)
-          </p>
-        </div>
-      </div>
-      <div className="divide-y divide-slate-50 max-h-[400px] sm:max-h-[500px] md:max-h-[600px] overflow-y-auto">
-        {questions_answers.map((qa) => {
-          const isScored = qa.score_value !== null;
-          const isUpdating = updatingAnswerIds.has(qa.answer_id);
-          
-          return (
-            <div 
-              key={qa.question_id} 
-              className={`flex items-start gap-2 sm:gap-3 md:gap-4 px-3 sm:px-4 md:px-5 py-3 sm:py-4 transition-colors ${
-                isScored ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'
-              }`}
-            >
-              <span className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-full bg-purple-100 flex items-center justify-center text-[9px] sm:text-[10px] md:text-[11px] font-bold text-purple-700 shrink-0 mt-0.5">
-                {qa.display_order}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="text-[11px] sm:text-[12px] md:text-[13.5px] text-slate-800 font-medium leading-snug">{qa.question_text}</p>
-                <div className="flex items-center gap-2 sm:gap-3 mt-1 sm:mt-1.5">
-                  <p className="text-[10px] sm:text-[11px] md:text-[12px] text-[#2F4479] italic line-clamp-2">
-                    "{qa.patient_answer || "No response"}"
-                  </p>
-                  {isScored && (
-                    <span className="inline-flex items-center gap-0.5 sm:gap-1 text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1.5 sm:px-2 py-0.5 rounded-full bg-red-100 text-red-700 shrink-0">
-                      <Check size={9} className="sm:w-[10px] sm:h-[10px]" />
-                      Negative
-                    </span>
-                  )}
-                </div>
-                {qa.answered_at && (
-                  <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 mt-0.5 sm:mt-1">
-                    Answered {new Date(qa.answered_at).toLocaleString("en-IN", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </p>
-                )}
-              </div>
-              {/* Checkbox on RIGHT side */}
-              <button
-                onClick={() => onToggle(qa)}
-                className="shrink-0 mt-0.5"
-                title={isScored ? "Click to unscore" : "Click to score as negative"}
-              >
-                {isUpdating ? (
-                  <div className="w-[16px] h-[16px] sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] rounded border-2 border-purple-400 border-t-transparent animate-spin" />
-                ) : isScored ? (
-                  <CheckSquare size={16} className="sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] text-red-500" />
-                ) : (
-                  <Square size={16} className="sm:w-[17px] sm:h-[17px] md:w-[18px] md:h-[18px] text-slate-300 hover:text-red-400 transition-colors" />
-                )}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// SCT Report Card - Modern Report View
-// ============================================================================
-// ============================================================================
-// SCT Report Card - Modern Report View (FIXED - RS shown only in table)
-// ============================================================================
-function SCTReportCard({ loading, error, report, onRetry, questionsAnswers, qaLoading, qaError }) {
-  const printRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-  const [showReport, setShowReport] = useState(false);
-
-  if (loading) return <LoadingState label="Loading SCT report..." />;
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (!report) return null;
-
-  const { user, sct_report, saved_report } = report;
-  if (!sct_report) return null;
-  const { 
-    answered, 
-    total, 
-    positive, 
-    negative, 
-    completion_percentage, 
-    is_completed, 
-    scale_scores,
-    answers 
-  } = sct_report;
-
-  // Scale score configurations - EXCLUDING repressor_sensitiser (shown in main table as RS)
-  const scaleConfigs = {
-    at_mother: { label: "Mother", icon: "👩", color: "#EC4899", description: "Attitude towards mother" },
-    at_father: { label: "Father", icon: "👨", color: "#3B82F6", description: "Attitude towards father" },
-    at_father_family_unit: { label: "Family Unit", icon: "👨‍👩‍👧‍👦", color: "#8B5CF6", description: "Attitude towards father & family unit" },
-    at_women: { label: "Women", icon: "👩‍🦰", color: "#F43F5E", description: "Attitude towards women" },
-    at_heterosexual_relationship: { label: "Relationships", icon: "💑", color: "#EF4444", description: "Attitude towards heterosexual relationships" },
-    at_friends_acquaintances: { label: "Friends", icon: "🤝", color: "#10B981", description: "Attitude towards friends & acquaintances" },
-    at_superiors: { label: "Superiors", icon: "👔", color: "#6366F1", description: "Attitude towards superiors" },
-    at_people_supervised: { label: "Subordinates", icon: "👥", color: "#14B8A6", description: "Attitude towards people supervised" },
-    at_colleagues: { label: "Colleagues", icon: "💼", color: "#F59E0B", description: "Attitude towards colleagues" },
-    fears: { label: "Fears", icon: "😨", color: "#DC2626", description: "Fears" },
-    guilt: { label: "Guilt", icon: "😔", color: "#7C3AED", description: "Guilt feelings" },
-    at_own_abilities: { label: "Abilities", icon: "💪", color: "#059669", description: "Attitude towards own abilities" },
-    at_past: { label: "Past", icon: "⏮️", color: "#6B7280", description: "Attitude towards past" },
-    at_future: { label: "Future", icon: "🔮", color: "#0EA5E9", description: "Attitude towards future" },
-    goals: { label: "Goals", icon: "🎯", color: "#D946EF", description: "Goals & aspirations" },
-  };
-
-  // Keys to EXCLUDE from scale scores display (these are shown in the main table as RS)
-  const EXCLUDED_SCALE_KEYS = ['repressor_sensitiser', 'repressor_sensitizer'];
-
-  const getScoreLevel = (score) => {
-    if (score >= 4) return { level: "Positive", color: "#10B981", bgColor: "#D1FAE5" };
-    if (score >= 3) return { level: "Neutral", color: "#F59E0B", bgColor: "#FEF3C7" };
-    return { level: "Negative", color: "#EF4444", bgColor: "#FEE2E2" };
-  };
-
-  const handleDownload = async () => {
-    setDownloading(true); setDownloadError(null);
-    try {
-      await loadPdfLibs();
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; let yPos = margin;
-
-      const addSectionHeader = (text) => { yPos += 3; pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(text, margin, yPos); yPos += 8; };
-      const addLine = () => { yPos += 2; pdf.setDrawColor(200, 200, 200); pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 5; };
-
-      pdf.setFontSize(20); pdf.setTextColor(126, 34, 206); pdf.text("SCT Assessment Report", margin, yPos); yPos += 12;
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text("Sentence Completion Test Results", margin, yPos); yPos += 8;
-      addLine();
-      addSectionHeader("PATIENT INFORMATION");
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0);
-      pdf.text("Patient Name:", margin, yPos); pdf.setFontSize(12); pdf.setTextColor(47, 68, 121); pdf.text(user?.name || "N/A", margin + 25, yPos);
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`Patient ID: #${user?.id || "N/A"}`, pageWidth / 2, yPos); yPos += 8;
-      pdf.text(`Completion: ${answered}/${total} (${completion_percentage}%)`, margin, yPos); yPos += 10;
-      addLine();
-      addSectionHeader("ASSESSMENT SUMMARY");
-
-      pdf.setDrawColor(220, 220, 220); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 30, 3, 3, 'FD');
-      pdf.setFontSize(12); pdf.setTextColor(31, 109, 72); pdf.text(`Positive: ${positive || 0}`, margin + 10, yPos + 12);
-      pdf.setFontSize(12); pdf.setTextColor(220, 38, 38); pdf.text(`Negative: ${negative || 0}`, margin + 80, yPos + 12);
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(`Total: ${answered}/${total}`, margin + 150, yPos + 12);
-      yPos += 40;
-
-      addSectionHeader("SCALE SCORES");
-      if (scale_scores) {
-        // Filter out excluded keys (like repressor_sensitiser)
-        const validScaleKeys = Object.keys(scale_scores).filter(key => 
-          !EXCLUDED_SCALE_KEYS.includes(key.toLowerCase()) && scaleConfigs[key] !== undefined
-        );
-        
-        validScaleKeys.forEach((key) => {
-          if (yPos > pageHeight - 20) { pdf.addPage(); yPos = margin; }
-          const score = scale_scores[key];
-          const config = scaleConfigs[key] || { label: key, color: "#64748B" };
-          const { level, color } = getScoreLevel(score);
-          pdf.setDrawColor(220, 220, 220); pdf.setFillColor(252, 252, 252); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 10, 1, 1, 'FD');
-          pdf.setFontSize(8); pdf.setTextColor(80, 80, 80); pdf.text(`${config.label}`, margin + 5, yPos + 7);
-          const colorHex = color.replace("#", "");
-          pdf.setFontSize(8); pdf.setTextColor(parseInt(colorHex.substring(0,2),16), parseInt(colorHex.substring(2,4),16), parseInt(colorHex.substring(4,6),16));
-          pdf.text(`${score}/5 (${level})`, margin + 80, yPos + 7);
-          const barX = margin + 120; const barW = pageWidth - margin * 2 - 125;
-          pdf.setDrawColor(220, 220, 220); pdf.setFillColor(240, 240, 240); pdf.roundedRect(barX, yPos + 2, barW, 3, 1, 1, 'FD');
-          pdf.setFillColor(parseInt(colorHex.substring(0,2),16), parseInt(colorHex.substring(2,4),16), parseInt(colorHex.substring(4,6),16));
-          pdf.roundedRect(barX, yPos + 2, barW * (score / 5), 3, 1, 1, 'F');
-          yPos += 12;
-        });
-      }
-
-      pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform`, pageWidth / 2, pageHeight - 10, { align: "center" });
-
-      const date = new Date().toISOString().split('T')[0];
-      const safeName = (user?.name || "patient").replace(/[^a-z0-9]+/gi, "_").toLowerCase().substring(0, 30);
-      pdf.save(`SCT_Report_${safeName}_${date}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      setDownloadError(err.message || "Could not generate PDF. Please check console for details.");
-    } finally { setDownloading(false); }
-  };
-
-  const scoredCount = answers?.filter(a => a.score_value !== null).length || 0;
-
-  // Filter scale scores to EXCLUDE repressor_sensitiser (shown in main table as RS)
-  const filteredScaleScores = scale_scores ? 
-    Object.fromEntries(
-      Object.entries(scale_scores).filter(([key]) => 
-        !EXCLUDED_SCALE_KEYS.includes(key.toLowerCase()) && scaleConfigs[key] !== undefined
-      )
-    ) : 
-    null;
-
-  return (
-    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg bg-purple-100 flex items-center justify-center shrink-0">
-            <Brain size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-purple-700" />
-          </div>
-          <div className="min-w-0">
-            <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">SCT Sentence Completion Test</p>
-            <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500">Sentence completion responses</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-          <span className="hidden sm:inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-semibold border bg-purple-100 text-purple-700 border-purple-200">
-            {scoredCount > 0 ? `${scoredCount}/${answered} scored` : `${answered}/${total} completed`}
-          </span>
-          <button 
-            onClick={() => setShowReport(!showReport)} 
-            className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-purple-600 text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-purple-700 transition-colors"
-          >
-            {showReport ? 'Hide Report' : 'Go Report'}
-          </button>
-        </div>
-      </div>
-      {downloadError && (
-        <div className="px-3 sm:px-4 md:px-5 py-2 sm:py-3 mx-3 sm:mx-4 md:mx-5 mb-2 sm:mb-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-start gap-1.5 sm:gap-2">
-            <XCircle size={14} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-red-500 mt-0.5 shrink-0" />
-            <div>
-              <p className="text-[11px] sm:text-[12px] md:text-[13px] font-medium text-red-700">Download Failed</p>
-              <p className="text-[10px] sm:text-[11px] md:text-[12px] text-red-600 mt-0.5">{downloadError}</p>
-              <button onClick={() => setDownloadError(null)} className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] md:text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Report Content */}
-      {showReport && (
-        <div ref={printRef} className="p-4 sm:p-5 md:p-6 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
-          {/* Patient Info Header */}
-          <div className="border-b border-slate-200 pb-4 sm:pb-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4">
-              <div>
-                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 mb-1">SCT Assessment Report</h1>
-                <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-500">Sentence Completion Test Results</p>
-              </div>
-              <div className="text-left sm:text-right">
-                <StatusBadge status={is_completed ? "completed" : "in_progress"} />
-              </div>
-            </div>
-            <div className="flex flex-col xs:flex-row xs:items-center gap-2 xs:gap-3 sm:gap-4 mt-3 sm:mt-4">
-              <div>
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient</p>
-                <p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">{user?.name || "N/A"}</p>
-              </div>
-              <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
-              <div>
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Email</p>
-                <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-700">{user?.email || "N/A"}</p>
-              </div>
-              {user?.id && (
-                <>
-                  <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
-                  <div>
-                    <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p>
-                    <p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-700">#{user.id}</p>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Summary Cards */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 border border-purple-200 p-3 sm:p-4">
-              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-purple-600 uppercase tracking-wide">Completion</p>
-              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-purple-700 mt-0.5 sm:mt-1">{completion_percentage?.toFixed(1)}%</p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-purple-500">{answered}/{total} answers</p>
-            </div>
-            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-green-50 to-emerald-100 border border-green-200 p-3 sm:p-4">
-              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-green-600 uppercase tracking-wide">Positive</p>
-              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-green-700 mt-0.5 sm:mt-1">{positive || 0}</p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-green-500">Responses</p>
-            </div>
-            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-red-50 to-rose-100 border border-red-200 p-3 sm:p-4">
-              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-red-600 uppercase tracking-wide">Negative</p>
-              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-red-700 mt-0.5 sm:mt-1">{negative || 0}</p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-red-500">Responses</p>
-            </div>
-            <div className="rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-50 to-yellow-100 border border-amber-200 p-3 sm:p-4">
-              <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-amber-600 uppercase tracking-wide">Scored</p>
-              <p className="text-[18px] sm:text-[20px] md:text-[24px] font-bold text-amber-700 mt-0.5 sm:mt-1">{scoredCount}</p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-amber-500">Marked negative</p>
-            </div>
-          </div>
-
-          {/* Progress Bar */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">Response Distribution</p>
-              <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">{positive || 0} positive · {negative || 0} negative</p>
-            </div>
-            <div className="h-2.5 sm:h-3 rounded-full bg-slate-100 overflow-hidden flex">
-              {positive > 0 && (
-                <div 
-                  className="h-full bg-gradient-to-r from-green-400 to-emerald-500 transition-all" 
-                  style={{ width: `${((positive || 0) / (answered || 1)) * 100}%` }} 
-                />
-              )}
-              {negative > 0 && (
-                <div 
-                  className="h-full bg-gradient-to-r from-red-400 to-rose-500 transition-all" 
-                  style={{ width: `${((negative || 0) / (answered || 1)) * 100}%` }} 
-                />
-              )}
-              <div className="h-full bg-slate-200 flex-1" />
-            </div>
-          </div>
-
-          {/* Scale Scores - Modern Card Grid - EXCLUDING repressor_sensitiser */}
-          <div>
-            <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3 sm:mb-4">Attitude Scale Scores</h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2 sm:gap-3">
-              {filteredScaleScores && Object.entries(filteredScaleScores).map(([key, score]) => {
-                const config = scaleConfigs[key] || { 
-                  label: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), 
-                  icon: "📊", 
-                  color: "#64748B", 
-                  description: "" 
-                };
-                const { level, color, bgColor } = getScoreLevel(score);
-                const percentage = (score / 4) * 100;
-                
-                return (
-                  <div 
-                    key={key === "REPRESSOR_SENSITISER" ? "RS" : key} 
-                    className="rounded-lg sm:rounded-xl border border-slate-200 bg-white p-3 sm:p-4 hover:shadow-md transition-shadow"
-                  >
-                    <div className="flex items-center justify-between mb-2 sm:mb-3">
-                      <div className="flex items-center gap-1.5 sm:gap-2">
-                        <span className="text-base sm:text-lg">{config.icon}</span>
-                        <div>
-                          <p className="text-[10px] sm:text-[11px] md:text-[12px] font-semibold text-slate-800">{config.label}</p>
-                          <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 hidden sm:block">{config.description}</p>
-                        </div>
-                      </div>
-                      <span 
-                        className="inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] md:text-[10px] font-bold"
-                        style={{ backgroundColor: bgColor, color: color }}
-                      >
-                        {score}/4
-                      </span>
-                    </div>
-                    <div className="space-y-1 sm:space-y-1.5">
-                      <div className="h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden">
-                        <div 
-                          className="h-full rounded-full transition-all duration-500"
-                          style={{ width: `${percentage}%`, backgroundColor: color }} 
-                        />
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400 line-clamp-1">{config.description}</span>
-                        <span className="text-[8px] sm:text-[9px] md:text-[10px] font-semibold" style={{ color: color }}>{level}</span>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Scale Score Legend */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 md:gap-4 p-2.5 sm:p-3 rounded-lg bg-slate-50 border border-slate-100">
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-green-500" />
-              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Positive (4-5)</span>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-amber-500" />
-              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Neutral (3)</span>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-1.5">
-              <div className="w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-red-500" />
-              <span className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-600">Negative (0-2)</span>
-            </div>
-          </div>
-
-          {/* Download Button */}
-          <div className="flex justify-end pt-1 sm:pt-2">
-            <button 
-              onClick={handleDownload} 
-              disabled={downloading}
-              className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#2F4479] text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60"
-            >
-              {downloading ? (
-                <><Loader2 size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] animate-spin" /> Generating...</>
-              ) : (
-                <><Download size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px]" /> Download PDF Report</>
-              )}
-            </button>
-          </div>
-
-          {/* Footer */}
-          <div className="border-t border-slate-200 pt-3 sm:pt-4 text-center">
-            <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">
-              Generated on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-// ============================================================================
-// EPI Report Card (with PDF download)
-// ============================================================================
-function EpiReportCard({ loading, error, report, onRetry }) {
-  const printRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-
-  if (loading) return <LoadingState label="Loading EPI report..." />;
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (!report) return null;
-
-  const { user, epi_report, saved_report } = report;
-  if (!epi_report) return null;
-  const { e_score, n_score, l_score, personality_type, traits, summary, graph_data } = epi_report;
-
-  const handleDownload = async () => {
-    setDownloading(true); setDownloadError(null);
-    try {
-      await loadPdfLibs();
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; let yPos = margin;
-
-      const addSectionHeader = (text) => { yPos += 3; pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(text, margin, yPos); yPos += 8; };
-      const addLine = () => { yPos += 2; pdf.setDrawColor(200, 200, 200); pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 5; };
-
-      pdf.setFontSize(20); pdf.setTextColor(47, 68, 121);
-      pdf.text("EPI Personality Assessment Report", margin, yPos); yPos += 12;
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100);
-      pdf.text("Eysenck Personality Inventory Results", margin, yPos); yPos += 8;
-      addLine();
-      addSectionHeader("PATIENT INFORMATION");
-
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0);
-      const leftCol = margin; const rightCol = pageWidth / 2 + 5;
-      pdf.text("Patient Name:", leftCol, yPos); pdf.setFontSize(12); pdf.setTextColor(47, 68, 121); pdf.text(user?.name || "N/A", leftCol + 25, yPos);
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Patient ID:", rightCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(`#${user?.id || "N/A"}`, rightCol + 20, yPos); yPos += 8;
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Email:", leftCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(user?.email || "N/A", leftCol + 25, yPos);
-      if (saved_report?.completed_at) { pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Assessment Date:", rightCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(new Date(saved_report.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }), rightCol + 30, yPos); }
-      yPos += 10; addLine();
-      addSectionHeader("DIMENSION SCORES"); yPos += 2;
-
-      const scoreBoxWidth = (pageWidth - margin * 2 - 10) / 3; const scoreBoxHeight = 30; const scoreBoxY = yPos;
-      const scores = [
-        { label: "Extraversion (E)", score: e_score, max: graph_data?.max_score || 24, color: [232, 87, 32] },
-        { label: "Neuroticism (N)", score: n_score, max: graph_data?.max_score || 24, color: [47, 68, 121] },
-        { label: "Lie Scale (L)", score: l_score, max: 9, color: [31, 109, 72] },
-      ];
-      scores.forEach((score, index) => {
-        const boxX = margin + (scoreBoxWidth + 5) * index;
-        pdf.setDrawColor(200, 200, 200); pdf.setFillColor(245, 245, 245); pdf.roundedRect(boxX, scoreBoxY, scoreBoxWidth, scoreBoxHeight, 2, 2, 'FD');
-        pdf.setFontSize(8); pdf.setTextColor(100, 100, 100); pdf.text(score.label, boxX + 3, scoreBoxY + 6);
-        pdf.setFontSize(16); pdf.setTextColor(...score.color); pdf.text(`${score.score || 0}/${score.max}`, boxX + 3, scoreBoxY + 20);
-        const barY = scoreBoxY + scoreBoxHeight - 5;
-        pdf.setDrawColor(220, 220, 220); pdf.setFillColor(240, 240, 240); pdf.roundedRect(boxX + 3, barY, scoreBoxWidth - 6, 3, 1, 1, 'FD');
-        const pct = Math.min(100, Math.max(0, score.score / score.max * 100));
-        pdf.setFillColor(...score.color); pdf.roundedRect(boxX + 3, barY, (scoreBoxWidth - 6) * pct / 100, 3, 1, 1, 'F');
-      });
-      yPos = scoreBoxY + scoreBoxHeight + 10; addLine();
-      addSectionHeader("PERSONALITY PROFILE"); yPos += 2;
-
-      if (personality_type || graph_data?.quadrant) {
-        const profileWidth = (pageWidth - margin * 2 - 10) / 2; const profileHeight = 35; const profileY = yPos;
-        if (personality_type) {
-          pdf.setDrawColor(31, 109, 72); pdf.setFillColor(241, 250, 245); pdf.roundedRect(margin, profileY, profileWidth, profileHeight, 3, 3, 'FD');
-          pdf.setFontSize(9); pdf.setTextColor(100, 100, 100); pdf.text("Personality Type", margin + 4, profileY + 8);
-          pdf.setFontSize(18); pdf.setTextColor(31, 109, 72); pdf.text(personality_type, margin + 4, profileY + 25);
-        }
-        if (graph_data?.quadrant) {
-          pdf.setDrawColor(47, 68, 121); pdf.setFillColor(245, 247, 250); pdf.roundedRect(margin + profileWidth + 10, profileY, profileWidth, profileHeight, 3, 3, 'FD');
-          pdf.setFontSize(9); pdf.setTextColor(100, 100, 100); pdf.text("Quadrant", margin + profileWidth + 14, profileY + 8);
-          pdf.setFontSize(16); pdf.setTextColor(47, 68, 121); pdf.text(graph_data.quadrant.replace("-", " ").toUpperCase(), margin + profileWidth + 14, profileY + 25);
-        }
-        yPos = profileY + profileHeight + 10;
-      }
-      addLine();
-
-      if (Array.isArray(traits) && traits.length > 0) {
-        addSectionHeader("PERSONALITY TRAITS");
-        pdf.setFontSize(10); pdf.setTextColor(80, 80, 80);
-        const traitsPerLine = 4; const traitWidth = (pageWidth - margin * 2) / traitsPerLine;
-        traits.forEach((trait, index) => {
-          const col = index % traitsPerLine; const row = Math.floor(index / traitsPerLine);
-          const traitX = margin + col * traitWidth; const traitY = yPos + row * 8;
-          pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(traitX + 2, traitY - 5, traitWidth - 4, 6, 2, 2, 'FD');
-          pdf.text(`• ${trait}`, traitX + 4, traitY);
-        });
-        yPos += Math.ceil(traits.length / traitsPerLine) * 8 + 8;
-      }
-      addLine();
-
-      if (summary) {
-        addSectionHeader("SUMMARY");
-        pdf.setFontSize(10); pdf.setTextColor(60, 60, 60);
-        const summaryLines = pdf.splitTextToSize(summary, pageWidth - margin * 2 - 10);
-        const summaryHeight = summaryLines.length * 5 + 10;
-        pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, summaryHeight, 3, 3, 'FD');
-        pdf.setTextColor(60, 60, 60); pdf.text(summaryLines, margin + 5, yPos + 6);
-        yPos += summaryHeight + 10;
-      }
-
-      pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform`, pageWidth / 2, pageHeight - 10, { align: "center" });
-
-      const date = new Date().toISOString().split('T')[0];
-      const safeName = (user?.name || "patient").replace(/[^a-z0-9]+/gi, "_").toLowerCase().substring(0, 30);
-      pdf.save(`EPI_Report_${safeName}_${date}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      setDownloadError(err.message || "Could not generate PDF. Please check console for details.");
-    } finally { setDownloading(false); }
-  };
-
-  return (
-    <ReportCardWrapper
-      icon={<Sparkles size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#E85720]" />}
-      iconBg="bg-[#E85720]/10"
-      title="EPI Personality Report"
-      subtitle="Eysenck Personality Inventory result"
-      badge={personality_type ? { icon: <BadgeCheck size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" />, text: personality_type, className: "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" } : null}
-      onDownload={handleDownload}
-      downloading={downloading}
-      downloadError={downloadError}
-      setDownloadError={setDownloadError}
-      printRef={printRef}
-    >
-      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-6 md:space-y-8 bg-white">
-        <ReportHeader title="EPI Personality Assessment Report" user={user} savedReport={saved_report} />
-        <div className="flex justify-center py-2 sm:py-3 md:py-4 overflow-x-auto">
-          <div className="min-w-[300px] sm:min-w-[400px] md:min-w-[500px]">
-            <EpiQuadrantWheel eScore={e_score} nScore={n_score} maxScore={graph_data?.max_score ?? 24} personalityType={personality_type} />
-          </div>
-        </div>
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Dimension Scores</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
-            <EpiScoreBar label="Extraversion (E)" score={e_score} max={graph_data?.max_score || 24} percentage={graph_data?.e_percentage} color="#E85720" />
-            <EpiScoreBar label="Neuroticism (N)" score={n_score} max={graph_data?.max_score || 24} percentage={graph_data?.n_percentage} color="#2F4479" />
-            <EpiScoreBar label="Lie Scale (L)" score={l_score} max={9} percentage={l_score ? (l_score / 9) * 100 : 0} color="#1F6D48" />
-          </div>
-        </div>
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Personality Profile</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-            {personality_type && <InfoCard label="Personality Type" value={personality_type} color="[#1F6D48]" />}
-            {graph_data?.quadrant && <InfoCard label="Quadrant" value={graph_data.quadrant.replace("-", " ")} color="[#2F4479]" />}
-          </div>
-        </div>
-        {Array.isArray(traits) && traits.length > 0 && <TraitsList traits={traits} />}
-        {summary && <SummaryBox summary={summary} />}
-        <ReportInfo savedReport={saved_report} />
-        <ReportFooter />
-      </div>
-    </ReportCardWrapper>
-  );
-}
-
-// ============================================================================
-// MPQ Report Card
-// ============================================================================
-function MPQReportCard({ loading, error, report, onRetry }) {
-  const printRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-
-  if (loading) return <LoadingState label="Loading MPQ report..." />;
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (!report) return null;
-
-  const { user, mpq_report, saved_report } = report;
-  if (!mpq_report) return null;
-  const { scores, interpretation, summary } = mpq_report;
-
-  const handleDownload = async () => {
-    setDownloading(true); setDownloadError(null);
-    try {
-      await loadPdfLibs();
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; let yPos = margin;
-
-      const addSectionHeader = (text) => { yPos += 3; pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(text, margin, yPos); yPos += 8; };
-      const addLine = () => { yPos += 2; pdf.setDrawColor(200, 200, 200); pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 5; };
-
-      pdf.setFontSize(20); pdf.setTextColor(47, 68, 121); pdf.text("MPQ Personality Assessment Report", margin, yPos); yPos += 12;
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text("Multiphasic Personality Questionnaire Results", margin, yPos); yPos += 8;
-      addLine();
-      addSectionHeader("PATIENT INFORMATION");
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0);
-      const leftCol = margin; const rightCol = pageWidth / 2 + 5;
-      pdf.text("Patient Name:", leftCol, yPos); pdf.setFontSize(12); pdf.setTextColor(47, 68, 121); pdf.text(user?.name || "N/A", leftCol + 25, yPos);
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Patient ID:", rightCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(`#${user?.id || "N/A"}`, rightCol + 20, yPos); yPos += 8;
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Email:", leftCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(user?.email || "N/A", leftCol + 25, yPos);
-      if (saved_report?.completed_at) { pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Assessment Date:", rightCol, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(new Date(saved_report.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }), rightCol + 30, yPos); }
-      yPos += 10; addLine();
-      addSectionHeader("SCALE SCORES"); yPos += 2;
-
-      Object.entries(scores).forEach(([key, score]) => {
-        if (yPos > pageHeight - 30) { pdf.addPage(); yPos = margin; }
-        const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24, description: "" };
-        const interp = interpretation?.[key];
-        const level = interp?.status || "Normal";
-        const cutoff = interp?.cutoff;
-        const isAbove = !!interp?.is_above_cutoff;
-        const color = isAbove ? [232, 87, 32] : [31, 109, 72];
-        const pct = (score / config.totalQuestions) * 100;
-
-        pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 18, 2, 2, 'FD');
-        pdf.setFontSize(11); pdf.setTextColor(0, 0, 0); pdf.text(`${key === "REPRESSOR_SENSITISER" ? "RS" : key}`, margin + 3, yPos + 6);
-        pdf.setFontSize(9); pdf.setTextColor(80, 80, 80); pdf.text(`${config.name} (${config.totalQuestions} questions)`, margin + 20, yPos + 6);
-        pdf.setFontSize(7); pdf.setTextColor(120, 120, 120); pdf.text(config.description, margin + 20, yPos + 12);
-        pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`${score}/${config.totalQuestions}`, margin + 130, yPos + 6);
-        pdf.setFontSize(9); pdf.setTextColor(...color);
-        pdf.text(cutoff !== undefined && cutoff !== null ? `Cutoff: ${cutoff} (${level})` : level, margin + 130, yPos + 12);
-
-        const barX = margin + 155; const barW = pageWidth - margin * 2 - 160;
-        pdf.setDrawColor(220, 220, 220); pdf.setFillColor(240, 240, 240); pdf.roundedRect(barX, yPos + 4, barW, 4, 1, 1, 'FD');
-        pdf.setFillColor(...color); pdf.roundedRect(barX, yPos + 4, barW * Math.min(100, pct) / 100, 4, 1, 1, 'F');
-        pdf.setFontSize(8); pdf.setTextColor(100, 100, 100); pdf.text(`${pct.toFixed(1)}%`, barX + barW + 2, yPos + 8);
-        yPos += 22;
-      });
-      yPos += 5; addLine();
-
-      if (summary) {
-        if (yPos > pageHeight - 40) { pdf.addPage(); yPos = margin; }
-        addSectionHeader("SUMMARY");
-        pdf.setFontSize(10); pdf.setTextColor(60, 60, 60);
-        const summaryLines = pdf.splitTextToSize(summary, pageWidth - margin * 2 - 10);
-        const summaryHeight = summaryLines.length * 5 + 10;
-        pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, summaryHeight, 3, 3, 'FD');
-        pdf.setTextColor(60, 60, 60); pdf.text(summaryLines, margin + 5, yPos + 6);
-        yPos += summaryHeight + 10;
-      }
-
-      pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform`, pageWidth / 2, pageHeight - 10, { align: "center" });
-
-      const date = new Date().toISOString().split('T')[0];
-      const safeName = (user?.name || "patient").replace(/[^a-z0-9]+/gi, "_").toLowerCase().substring(0, 30);
-      pdf.save(`MPQ_Report_${safeName}_${date}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      setDownloadError(err.message || "Could not generate PDF. Please check console for details.");
-    } finally { setDownloading(false); }
-  };
-
-  return (
-    <ReportCardWrapper
-      icon={<Activity size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#2F4479]" />}
-      iconBg="bg-[#2F4479]/10"
-      title="MPQ Personality Report"
-      subtitle="Multiphasic Personality Questionnaire result"
-      onDownload={handleDownload}
-      downloading={downloading}
-      downloadError={downloadError}
-      setDownloadError={setDownloadError}
-      printRef={printRef}
-    >
-      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
-        <ReportHeader title="MPQ Personality Assessment Report" user={user} savedReport={saved_report} />
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Scale Summary</h2>
-          <div className="overflow-x-auto -mx-4 sm:-mx-6 md:-mx-8 px-4 sm:px-6 md:px-8">
-            <div className="min-w-[600px] md:min-w-[700px] lg:min-w-full">
-              <table className="w-full text-[10px] sm:text-[11px] md:text-[12px]">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="text-left py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Scale</th>
-                    <th className="text-left py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Name</th>
-                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Score</th>
-                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Questions</th>
-                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Percentage</th>
-                    <th className="text-center py-2 px-1.5 sm:px-2 font-semibold text-slate-500">Cutoff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  
-                  {Object.entries(scores).map(([key, score]) => {
-                    console.log(scores);
-                    const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24 };
-                    const interp = interpretation?.[key];
-                    const pct = ((score / config.totalQuestions) * 100).toFixed(1);
-                    return (
-                      <tr key={key === "REPRESSOR_SENSITISER" ? "RS" : key}className="border-b border-slate-100 hover:bg-slate-50">
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2"><span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[10px] sm:text-[11px] md:text-[12px] font-bold text-[#2F4479]">{key === "REPRESSOR_SENSITISER" ? "RS" : key}</span></td>
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2"><p className="font-medium text-slate-800">{config.name}</p></td>
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center"><span className="font-bold text-slate-800">{score}</span></td>
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center text-slate-500">{config.totalQuestions}</td>
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center"><span className="font-medium text-slate-700">{pct}%</span></td>
-                        <td className="py-2 sm:py-2.5 px-1.5 sm:px-2 text-center">
-                          <CutoffBadge score={score} cutoff={interp?.cutoff} isAboveCutoff={interp?.is_above_cutoff} />
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-3 sm:mb-4">Scale Details</h2>
-          <div className="space-y-2 sm:space-y-3">
-            {Object.entries(scores).map(([key, score]) => {
-              const config = MPQ_SCALE_CONFIG[key] || { name: key, totalQuestions: 24, description: "" };
-              const interp = interpretation?.[key];
-              const pct = ((score / config.totalQuestions) * 100);
-              const isAbove = !!interp?.is_above_cutoff;
-              const colorHex = isAbove ? "#E85720" : "#1F6D48";
-              return (
-                <div key={key === "REPRESSOR_SENSITISER" ? "RS" : key} className="rounded-lg sm:rounded-xl border border-slate-100 bg-white p-3 sm:p-4">
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                    <div className="flex items-center gap-2 sm:gap-3">
-                      <span className="w-8 h-8 sm:w-9 sm:h-9 md:w-10 md:h-10 rounded-lg bg-[#2F4479]/5 flex items-center justify-center text-[11px] sm:text-[12px] md:text-[13px] font-bold text-[#2F4479]">{key === "REPRESSOR_SENSITISER" ? "RS" : key}</span>
-                      <div><p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{config.name}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 hidden sm:block">{config.description}</p></div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-[13px] sm:text-[14px] md:text-[15px] font-bold text-slate-800">{score}<span className="text-slate-400 text-[10px] sm:text-[11px] md:text-[12px]">/{config.totalQuestions}</span></p>
-                      <CutoffBadge score={score} cutoff={interp?.cutoff} isAboveCutoff={interp?.is_above_cutoff} />
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="flex-1 h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: colorHex }} /></div>
-                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 w-10 sm:w-12 text-right">{pct.toFixed(1)}%</span>
-                  </div>
-                  <div className="flex items-center justify-between mt-0.5 sm:mt-1">
-                    <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{score} of {config.totalQuestions} questions</p>
-                    <p className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">Cutoff: {interp?.cutoff ?? "—"}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        {summary && <SummaryBox summary={summary} />}
-        <ReportInfo savedReport={saved_report} />
-        <ReportFooter />
-      </div>
-    </ReportCardWrapper>
-  );
-}
-
-// ============================================================================
-// PHQ-9 Report Card
-// ============================================================================
-function PHQ9ReportCard({ loading, error, report, onRetry }) {
-  const printRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-
-  if (loading) return <LoadingState label="Loading PHQ-9 report..." />;
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (!report) return null;
-
-  const { user, phq9_report, saved_report } = report;
-  if (!phq9_report) return null;
-  const { total_score, max_score, severity, question_details, summary } = phq9_report;
-  const severityColor = getPHQ9SeverityColor(severity?.label);
-
-  const handleDownload = async () => {
-    setDownloading(true); setDownloadError(null);
-    try {
-      await loadPdfLibs();
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; let yPos = margin;
-
-      const addSectionHeader = (text) => { yPos += 3; pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(text, margin, yPos); yPos += 8; };
-      const addLine = () => { yPos += 2; pdf.setDrawColor(200, 200, 200); pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 5; };
-
-      pdf.setFontSize(20); pdf.setTextColor(47, 68, 121); pdf.text("PHQ-9 Depression Assessment Report", margin, yPos); yPos += 12;
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text("Patient Health Questionnaire Results", margin, yPos); yPos += 8;
-      addLine();
-      addSectionHeader("PATIENT INFORMATION");
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0);
-      pdf.text("Patient Name:", margin, yPos); pdf.setFontSize(12); pdf.setTextColor(47, 68, 121); pdf.text(user?.name || "N/A", margin + 25, yPos);
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`Patient ID: #${user?.id || "N/A"}`, pageWidth / 2, yPos); yPos += 8;
-      if (saved_report?.completed_at) { pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text("Assessment Date:", margin, yPos); pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text(new Date(saved_report.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" }), margin + 30, yPos); }
-      yPos += 10; addLine();
-      addSectionHeader("ASSESSMENT RESULT");
-
-      const scoreColorHex = severityColor.replace("#", "");
-      const scoreColor = [parseInt(scoreColorHex.substring(0, 2), 16), parseInt(scoreColorHex.substring(2, 4), 16), parseInt(scoreColorHex.substring(4, 6), 16)];
-
-      pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 40, 3, 3, 'FD');
-      pdf.setFontSize(24); pdf.setTextColor(...scoreColor); pdf.text(`${total_score} / ${max_score}`, margin + 5, yPos + 18);
-      pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text("Total Score", margin + 5, yPos + 32);
-      if (severity) {
-        pdf.setFontSize(14); pdf.setTextColor(...scoreColor); pdf.text(`Severity: ${severity.label}`, margin + 80, yPos + 18);
-        pdf.setFontSize(9); pdf.setTextColor(100, 100, 100); pdf.text(severity.description, margin + 80, yPos + 28);
-      }
-      yPos += 50; addLine();
-      addSectionHeader("QUESTION RESPONSES"); yPos += 2;
-
-      if (question_details) {
-        Object.entries(question_details).forEach(([qId, detail]) => {
-          const qScore = detail.score || 0;
-          const qColor = getPHQ9ScoreColor(qScore).replace("#", "");
-          const qr = parseInt(qColor.substring(0, 2), 16);
-          const qg = parseInt(qColor.substring(2, 4), 16);
-          const qb = parseInt(qColor.substring(4, 6), 16);
-
-          if (yPos > pageHeight - 20) { pdf.addPage(); yPos = margin; }
-          pdf.setDrawColor(220, 220, 220); pdf.setFillColor(252, 252, 252); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 10, 1, 1, 'FD');
-          pdf.setFontSize(8); pdf.setTextColor(qr, qg, qb); pdf.text(`[${qScore}]`, margin + 2, yPos + 7);
-          pdf.setFontSize(8); pdf.setTextColor(80, 80, 80); pdf.text(detail.question_text || "", margin + 12, yPos + 7);
-          yPos += 12;
-        });
-      }
-
-      pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform`, pageWidth / 2, pageHeight - 10, { align: "center" });
-
-      const date = new Date().toISOString().split('T')[0];
-      const safeName = (user?.name || "patient").replace(/[^a-z0-9]+/gi, "_").toLowerCase().substring(0, 30);
-      pdf.save(`PHQ9_Report_${safeName}_${date}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      setDownloadError(err.message || "Could not generate PDF. Please check console for details.");
-    } finally { setDownloading(false); }
-  };
-
-  return (
-    <ReportCardWrapper
-      icon={<Heart size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-[#1F6D48]" />}
-      iconBg="bg-[#1F6D48]/10"
-      title="PHQ-9 Depression Assessment"
-      subtitle="Patient Health Questionnaire result"
-      badge={severity ? { text: severity.label, className: `bg-[${severityColor}]/10 text-[${severityColor}] border-[${severityColor}]/30` } : null}
-      onDownload={handleDownload}
-      downloading={downloading}
-      downloadError={downloadError}
-      setDownloadError={setDownloadError}
-      printRef={printRef}
-    >
-      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
-        <ReportHeader title="PHQ-9 Depression Assessment Report" user={user} savedReport={saved_report} />
-        <div className="rounded-xl sm:rounded-2xl border-2 p-4 sm:p-5 md:p-6" style={{ borderColor: `${severityColor}40`, backgroundColor: `${severityColor}08` }}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <div>
-              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-0.5 sm:mb-1">Total Score</p>
-              <p className="text-[32px] sm:text-[40px] md:text-[48px] font-bold" style={{ color: severityColor }}>{total_score}<span className="text-[16px] sm:text-[18px] md:text-[20px] font-normal text-slate-400">/{max_score}</span></p>
-            </div>
-            <div className="text-left sm:text-right">
-              <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-[12px] md:text-[14px] font-bold border-2" style={{ backgroundColor: `${severityColor}15`, color: severityColor, borderColor: `${severityColor}40` }}>{severity?.label}</span>
-              <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-1.5 sm:mt-2 max-w-[200px] sm:max-w-[250px]">{severity?.description}</p>
-            </div>
-          </div>
-          <div className="mt-3 sm:mt-4"><div className="h-2.5 sm:h-3 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${(total_score / max_score) * 100}%`, backgroundColor: severityColor }} /></div><div className="flex justify-between mt-0.5 sm:mt-1"><span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">0</span><span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{max_score}</span></div></div>
-        </div>
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Severity Scale Reference</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-1.5 sm:gap-2">
-            {Object.entries(PHQ9_SEVERITY_CONFIG).map(([label, config]) => (
-              <div key={label} className="text-center p-2 sm:p-2.5 rounded-lg" style={{ backgroundColor: `${config.color}10` }}>
-                <div className="w-full h-1.5 sm:h-2 rounded-full mb-0.5 sm:mb-1" style={{ backgroundColor: config.color }} />
-                <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium" style={{ color: config.color }}>{label}</p>
-                <p className="text-[7px] sm:text-[8px] md:text-[9px] text-slate-500">{config.range[0]}-{config.range[1]}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Question Responses</h2>
-          <div className="space-y-1.5 sm:space-y-2">
-            {question_details && Object.entries(question_details).map(([qId, detail]) => {
-              const score = detail.score || 0; const scoreColor = getPHQ9ScoreColor(score);
-              return (
-                <div key={qId} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-slate-100 bg-white">
-                  <div className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg flex items-center justify-center text-[10px] sm:text-[11px] md:text-[12px] font-bold shrink-0" style={{ backgroundColor: `${scoreColor}20`, color: scoreColor }}>{score}</div>
-                  <div className="flex-1 min-w-0"><p className="text-[11px] sm:text-[12px] md:text-[13px] text-slate-800">{detail.question_text}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-0.5">{detail.answer_text}</p></div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        {summary && <SummaryBox summary={summary} />}
-        <ReportFooter />
-      </div>
-    </ReportCardWrapper>
-  );
-}
-
-// ============================================================================
-// GHQ-28 Report Card
-// ============================================================================
-function GHQ28ReportCard({ loading, error, report, onRetry }) {
-  const printRef = useRef(null);
-  const [downloading, setDownloading] = useState(false);
-  const [downloadError, setDownloadError] = useState(null);
-
-  if (loading) return <LoadingState label="Loading GHQ-28 report..." />;
-  if (error) return <ErrorState message={error} onRetry={onRetry} />;
-  if (!report) return null;
-
-  const { user, ghq28_report, saved_report } = report;
-  if (!ghq28_report) return null;
-  const { 
-    total_score, 
-    max_score, 
-    scale_scores, 
-    overall_status, 
-    answered, 
-    total, 
-    completion_percentage, 
-    is_completed, 
-    answers 
-  } = ghq28_report;
-
-  const handleDownload = async () => {
-    setDownloading(true); setDownloadError(null);
-    try {
-      await loadPdfLibs();
-      const { jsPDF } = window.jspdf;
-      const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15; let yPos = margin;
-
-      const addSectionHeader = (text) => { yPos += 3; pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text(text, margin, yPos); yPos += 8; };
-      const addLine = () => { yPos += 2; pdf.setDrawColor(200, 200, 200); pdf.line(margin, yPos, pageWidth - margin, yPos); yPos += 5; };
-
-      pdf.setFontSize(20); pdf.setTextColor(180, 83, 9); pdf.text("GHQ-28 Health Assessment Report", margin, yPos); yPos += 12;
-      pdf.setFontSize(12); pdf.setTextColor(100, 100, 100); pdf.text("General Health Questionnaire (GHQ-28) Results", margin, yPos); yPos += 8;
-      addLine();
-      addSectionHeader("PATIENT INFORMATION");
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0);
-      pdf.text("Patient Name:", margin, yPos); pdf.setFontSize(12); pdf.setTextColor(47, 68, 121); pdf.text(user?.name || "N/A", margin + 25, yPos);
-      pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`Patient ID: #${user?.id || "N/A"}`, pageWidth / 2, yPos); yPos += 8;
-      pdf.text(`Completion: ${answered}/${total} (${completion_percentage}%)`, margin, yPos); yPos += 10;
-      addLine();
-      addSectionHeader("ASSESSMENT RESULT");
-
-      const scoreBoxWidth = pageWidth - margin * 2; const scoreBoxHeight = 40;
-      pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, scoreBoxWidth, scoreBoxHeight, 3, 3, 'FD');
-      pdf.setFontSize(24); pdf.setTextColor(180, 83, 9); pdf.text(`${total_score} / ${max_score}`, margin + 5, yPos + 18);
-      pdf.setFontSize(11); pdf.setTextColor(100, 100, 100); pdf.text("Total Score", margin + 5, yPos + 32);
-      if (overall_status) {
-        const statusColor = overall_status.color === "green" ? [31, 109, 72] : overall_status.color === "yellow" ? [180, 83, 9] : [220, 38, 38];
-        pdf.setFontSize(14); pdf.setTextColor(...statusColor); pdf.text(`Status: ${overall_status.label}`, margin + 80, yPos + 18);
-        pdf.setFontSize(9); pdf.setTextColor(100, 100, 100); pdf.text(overall_status.description || "", margin + 80, yPos + 28);
-      }
-      yPos += scoreBoxHeight + 10; addLine();
-      addSectionHeader("SCALE SCORES"); yPos += 2;
-
-      if (scale_scores) {
-        Object.entries(scale_scores).forEach(([key, score]) => {
-          const config = GHQ28_SCALE_CONFIG[key] || { name: key, color: "#64748B", maxScore: 21 };
-          const pct = (score / config.maxScore) * 100;
-          const colorHex = config.color.replace("#", "");
-          const r = parseInt(colorHex.substring(0, 2), 16);
-          const g = parseInt(colorHex.substring(2, 4), 16);
-          const b = parseInt(colorHex.substring(4, 6), 16);
-          pdf.setDrawColor(200, 200, 200); pdf.setFillColor(248, 248, 248); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 14, 2, 2, 'FD');
-          pdf.setFontSize(10); pdf.setTextColor(0, 0, 0); pdf.text(`${key === "REPRESSOR_SENSITISER" ? "RS" : key}: ${config.name}`, margin + 3, yPos + 6);
-          pdf.setFontSize(10); pdf.setTextColor(r, g, b); pdf.text(`${score}/${config.maxScore}`, margin + 80, yPos + 6);
-          const barX = margin + 110; const barW = pageWidth - margin * 2 - 115;
-          pdf.setDrawColor(220, 220, 220); pdf.setFillColor(240, 240, 240); pdf.roundedRect(barX, yPos + 2, barW, 4, 1, 1, 'FD');
-          pdf.setFillColor(r, g, b); pdf.roundedRect(barX, yPos + 2, barW * Math.min(100, pct) / 100, 4, 1, 1, 'F');
-          pdf.setFontSize(8); pdf.setTextColor(100, 100, 100); pdf.text(`${pct.toFixed(1)}%`, barX + barW + 2, yPos + 6);
-          yPos += 16;
-        });
-      }
-      addLine();
-      addSectionHeader("QUESTION RESPONSES");
-
-      if (Array.isArray(answers)) {
-        let currentScale = "";
-        answers.forEach((answer) => {
-          if (yPos > pageHeight - 20) { pdf.addPage(); yPos = margin; }
-          if (answer.scale !== currentScale) {
-            currentScale = answer.scale; yPos += 3;
-            const config = GHQ28_SCALE_CONFIG[currentScale] || { name: currentScale, color: "#64748B" };
-            const colorHex = config.color.replace("#", "");
-            const r = parseInt(colorHex.substring(0, 2), 16);
-            const g = parseInt(colorHex.substring(2, 4), 16);
-            const b = parseInt(colorHex.substring(4, 6), 16);
-            pdf.setFontSize(9); pdf.setTextColor(r, g, b); pdf.text(`${currentScale}: ${config.name}`, margin, yPos); yPos += 5;
-          }
-          const scoreValue = answer.score !== undefined ? answer.score : answer.answer_value;
-          const answerColor = getGHQ28AnswerColor(scoreValue);
-          const acHex = answerColor.replace("#", "");
-          const ar = parseInt(acHex.substring(0, 2), 16);
-          const ag = parseInt(acHex.substring(2, 4), 16);
-          const ab = parseInt(acHex.substring(4, 6), 16);
-          pdf.setDrawColor(220, 220, 220); pdf.setFillColor(252, 252, 252); pdf.roundedRect(margin, yPos, pageWidth - margin * 2, 12, 1, 1, 'FD');
-          pdf.setFontSize(7); pdf.setTextColor(80, 80, 80);
-          const qText = pdf.splitTextToSize(answer.question_text || "", pageWidth - margin * 2 - 70);
-          pdf.text(qText, margin + 3, yPos + 5);
-          pdf.setFontSize(8); pdf.setTextColor(ar, ag, ab);
-          pdf.text(`Score: ${scoreValue}`, margin + 155, yPos + 5);
-          pdf.setFontSize(7); pdf.setTextColor(100, 100, 100);
-          pdf.text(answer.answer_text || "", margin + 155, yPos + 10);
-          yPos += 14;
-        });
-      }
-
-      pdf.setFontSize(8); pdf.setTextColor(150, 150, 150);
-      pdf.text(`Generated on ${new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform`, pageWidth / 2, pageHeight - 10, { align: "center" });
-
-      const date = new Date().toISOString().split('T')[0];
-      const safeName = (user?.name || "patient").replace(/[^a-z0-9]+/gi, "_").toLowerCase().substring(0, 30);
-      pdf.save(`GHQ28_Report_${safeName}_${date}.pdf`);
-    } catch (err) {
-      console.error("Error generating PDF:", err);
-      setDownloadError(err.message || "Could not generate PDF. Please check console for details.");
-    } finally { setDownloading(false); }
-  };
-
-  const statusColor = overall_status?.color === "green" ? "#1F6D48" : overall_status?.color === "yellow" ? "#B45309" : "#DC2626";
-
-  return (
-    <ReportCardWrapper
-      icon={<Stethoscope size={14} className="sm:w-[16px] sm:h-[16px] md:w-[17px] md:h-[17px] text-amber-700" />}
-      iconBg="bg-amber-100"
-      title="GHQ-28 Health Assessment"
-      subtitle="General Health Questionnaire result"
-      badge={overall_status ? { 
-        text: overall_status.label, 
-        className: overall_status.color === "green" 
-          ? "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" 
-          : overall_status.color === "yellow" 
-            ? "bg-amber-100 text-amber-700 border-amber-200" 
-            : "bg-red-100 text-red-700 border-red-200" 
-      } : null}
-      onDownload={handleDownload}
-      downloading={downloading}
-      downloadError={downloadError}
-      setDownloadError={setDownloadError}
-      printRef={printRef}
-    >
-      <div ref={printRef} className="p-4 sm:p-6 md:p-8 space-y-4 sm:space-y-5 md:space-y-6 bg-white">
-        <ReportHeader title="GHQ-28 Health Assessment Report" user={user} savedReport={saved_report} />
-        
-        {/* Total Score Card */}
-        <div className="rounded-xl sm:rounded-2xl border-2 p-4 sm:p-5 md:p-6" style={{ borderColor: `${statusColor}30`, backgroundColor: `${statusColor}05` }}>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
-            <div>
-              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide mb-0.5 sm:mb-1">Total Score</p>
-              <p className="text-[32px] sm:text-[40px] md:text-[48px] font-bold" style={{ color: statusColor }}>
-                {total_score}<span className="text-[16px] sm:text-[18px] md:text-[20px] font-normal text-slate-400">/{max_score}</span>
-              </p>
-            </div>
-            <div className="text-left sm:text-right">
-              {overall_status && (
-                <>
-                  <span className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full text-[11px] sm:text-[12px] md:text-[14px] font-bold border-2" 
-                    style={{ backgroundColor: `${statusColor}15`, color: statusColor, borderColor: `${statusColor}30` }}>
-                    {overall_status.label}
-                  </span>
-                  <p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500 mt-1.5 sm:mt-2 max-w-[200px] sm:max-w-[250px]">{overall_status.description}</p>
-                </>
-              )}
-            </div>
-          </div>
-          <div className="mt-3 sm:mt-4">
-            <div className="h-2.5 sm:h-3 rounded-full bg-slate-200 overflow-hidden">
-              <div className="h-full rounded-full transition-all" style={{ width: `${(total_score / max_score) * 100}%`, backgroundColor: statusColor }} />
-            </div>
-            <div className="flex justify-between mt-0.5 sm:mt-1">
-              <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">0</span>
-              <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">{max_score}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Completion Status */}
-        <div className="rounded-xl sm:rounded-2xl border border-slate-200 bg-white p-4 sm:p-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 mb-2 sm:mb-3">
-            <div>
-              <p className="text-[10px] sm:text-[11px] md:text-[12px] font-medium text-slate-500 uppercase tracking-wide">Completion Status</p>
-              <p className="text-[20px] sm:text-[22px] md:text-[24px] font-bold text-slate-800 mt-0.5 sm:mt-1">
-                {answered}/{total}<span className="text-[12px] sm:text-[13px] md:text-[14px] font-normal text-slate-500 ml-1">questions answered</span>
-              </p>
-            </div>
-            <StatusBadge status={is_completed ? "completed" : "in_progress"} />
-          </div>
-          <div className="h-2 sm:h-2.5 rounded-full bg-slate-200 overflow-hidden">
-            <div className="h-full rounded-full bg-amber-600 transition-all" style={{ width: `${completion_percentage}%` }} />
-          </div>
-          <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-1.5 sm:mt-2">{completion_percentage}% complete</p>
-        </div>
-
-        {/* Scale Scores */}
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Scale Scores</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3">
-            {scale_scores && Object.entries(scale_scores).map(([key, score]) => {
-              const config = GHQ28_SCALE_CONFIG[key] || { name: key, color: "#64748B", maxScore: 21 };
-              const pct = (score / config.maxScore) * 100;
-              return (
-                <div key={key === "REPRESSOR_SENSITISER" ? "RS" : key} className="rounded-lg sm:rounded-xl border border-slate-100 bg-white p-3 sm:p-4">
-                  <div className="flex items-center justify-between mb-1.5 sm:mb-2">
-                    <div>
-                      <p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{config.name}</p>
-                      <p className="text-[16px] sm:text-[18px] md:text-[20px] font-bold" style={{ color: config.color }}>
-                        {score}<span className="text-[11px] sm:text-[12px] md:text-[13px] font-normal text-slate-400">/{config.maxScore}</span>
-                      </p>
-                    </div>
-                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span>
-                  </div>
-                  <div className="h-1.5 sm:h-2 rounded-full bg-slate-100 overflow-hidden">
-                    <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: config.color }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Question Responses */}
-        <div>
-          <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Question Responses</h2>
-          <div className="space-y-1.5 sm:space-y-2">
-            {Array.isArray(answers) && answers.map((answer, index) => {
-              const config = GHQ28_SCALE_CONFIG[answer.scale] || { color: "#64748B" };
-              const scoreValue = answer.score !== undefined ? answer.score : answer.answer_value;
-              const answerColor = getGHQ28AnswerColor(scoreValue);
-              return (
-                <div key={answer.question_id || index} className="flex items-start gap-2 sm:gap-3 p-2.5 sm:p-3 rounded-lg border border-slate-100 bg-white">
-                  <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-                    <span className="w-5 h-5 sm:w-6 sm:h-6 md:w-7 md:h-7 rounded-lg flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-white" style={{ backgroundColor: answerColor }}>
-                      {scoreValue}
-                    </span>
-                    <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium px-1 sm:px-1.5 py-0.5 rounded" style={{ backgroundColor: `${config.color}15`, color: config.color }}>
-                      {answer.scale}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] sm:text-[11px] md:text-[12.5px] text-slate-800">{answer.question_text}</p>
-                    <div className="flex flex-col xs:flex-row xs:items-center gap-0.5 xs:gap-1.5 sm:gap-2 mt-0.5">
-                      <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500">{answer.answer_text}</p>
-                      <span className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-400">· Score: {scoreValue}</span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-        <ReportFooter />
-      </div>
-    </ReportCardWrapper>
-  );
-}
-
-// ============================================================================
-// Reusable Components
-// ============================================================================
-function ReportCardWrapper({ icon, iconBg, title, subtitle, badge, onDownload, downloading, downloadError, setDownloadError, printRef, children }) {
-  return (
-    <div className="bg-white rounded-xl sm:rounded-2xl border border-slate-200/70 shadow-sm shadow-slate-200/50 overflow-hidden">
-      <div className="px-3 sm:px-4 md:px-5 py-3 sm:py-4 border-b border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-3">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-          <div className={`w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
-          <div className="min-w-0"><p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-800">{title}</p><p className="text-[10px] sm:text-[11px] md:text-[12px] text-slate-500">{subtitle}</p></div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
-          {badge && <span className={`hidden sm:inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-semibold border ${badge.className}`}>{badge.icon}{badge.text}</span>}
-          <button onClick={onDownload} disabled={downloading} className="inline-flex items-center gap-1 sm:gap-1.5 px-3 sm:px-3.5 py-1.5 sm:py-2 rounded-lg sm:rounded-xl bg-[#2F4479] text-white text-[11px] sm:text-[12px] md:text-[12.5px] font-medium hover:bg-[#263a68] transition-colors disabled:opacity-60 disabled:cursor-not-allowed">
-            {downloading ? <><Loader2 size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px] animate-spin" /> Generating PDF...</> : <><Download size={12} className="sm:w-[13px] sm:h-[13px] md:w-[14px] md:h-[14px]" /> Download Report</>}
-          </button>
-        </div>
-      </div>
-      {downloadError && (
-        <div className="px-3 sm:px-4 md:px-5 py-2 sm:py-3 mx-3 sm:mx-4 md:mx-5 mb-2 sm:mb-3 bg-red-50 border border-red-200 rounded-lg">
-          <div className="flex items-start gap-1.5 sm:gap-2">
-            <XCircle size={14} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-red-500 mt-0.5 shrink-0" />
-            <div><p className="text-[11px] sm:text-[12px] md:text-[13px] font-medium text-red-700">Download Failed</p><p className="text-[10px] sm:text-[11px] md:text-[12px] text-red-600 mt-0.5">{downloadError}</p>
-              <button onClick={() => setDownloadError(null)} className="mt-1.5 sm:mt-2 text-[9px] sm:text-[10px] md:text-[11px] text-red-600 hover:text-red-700 underline">Dismiss</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {children}
-    </div>
-  );
-}
-
-function ReportHeader({ title, user, savedReport }) {
-  return (
-    <div className="border-b border-slate-200 pb-4 sm:pb-5 md:pb-6">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 sm:gap-4">
-        <div>
-          <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-slate-800 mb-1">{title}</h1>
-          <div className="flex flex-col xs:flex-row xs:flex-wrap xs:items-center gap-2 xs:gap-3 sm:gap-4 mt-2 sm:mt-3">
-            <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient Name</p><p className="text-[13px] sm:text-[14px] md:text-[15px] font-semibold text-slate-800">{user?.name || "N/A"}</p></div>
-            <div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" />
-            <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Email</p><p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700">{user?.email || "N/A"}</p></div>
-            {user?.id && <><div className="hidden xs:block w-px h-6 sm:h-8 bg-slate-200" /><div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Patient ID</p><p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700">#{user.id}</p></div></>}
-          </div>
-        </div>
-        <div className="text-left sm:text-right shrink-0">
-          {savedReport?.completed_at && <div><p className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500 uppercase tracking-wide">Assessment Date</p><p className="text-[12px] sm:text-[13px] md:text-[14px] font-semibold text-slate-700">{new Date(savedReport.completed_at).toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric" })}</p></div>}
-          {savedReport?.status && <div className="mt-1.5 sm:mt-2"><StatusBadge status={savedReport.status} /></div>}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ReportInfo({ savedReport }) {
-  if (!savedReport) return null;
-  return (
-    <div className="border-t border-slate-200 pt-4 sm:pt-5 md:pt-6">
-      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Report Information</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 sm:gap-3 md:gap-4">
-        {savedReport.id && <InfoItem label="Report ID" value={`#${savedReport.id}`} />}
-        {savedReport.user_id && <InfoItem label="User ID" value={`#${savedReport.user_id}`} />}
-        {savedReport.package_id && <InfoItem label="Package ID" value={`#${savedReport.package_id}`} />}
-        {savedReport.subheading_id && <InfoItem label="Section ID" value={`#${savedReport.subheading_id}`} />}
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 md:gap-4 mt-2 sm:mt-3">
-        {savedReport.created_at && <InfoItem label="Created At" value={new Date(savedReport.created_at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />}
-        {savedReport.updated_at && <InfoItem label="Last Updated" value={new Date(savedReport.updated_at).toLocaleString("en-IN", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })} />}
-      </div>
-    </div>
-  );
-}
-
-function ReportFooter() {
-  return (
-    <div className="border-t border-slate-200 pt-3 sm:pt-4 text-center">
-      <p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">Generated on {new Date().toLocaleDateString("en-IN", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Athma Assessment Platform</p>
-    </div>
-  );
-}
-
-function AssessmentBadge({ label, color }) {
-  return <span className={`text-[8px] sm:text-[9px] md:text-[10px] font-semibold px-1 sm:px-1.5 py-0.5 rounded ${color}`}>{label}</span>;
-}
-
-function StatusBadge({ status }) {
-  return (
-    <span className={`inline-flex items-center gap-1 sm:gap-1.5 px-2 sm:px-3 py-0.5 sm:py-1 rounded-full text-[10px] sm:text-[11px] md:text-[12px] font-medium border shrink-0 ${status === "completed" ? "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20" : "bg-[#E85720]/10 text-[#E85720] border-[#E85720]/20"}`}>
-      {status === "completed" ? <CheckCircle2 size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" /> : <Clock size={11} className="sm:w-[12px] sm:h-[12px] md:w-[13px] md:h-[13px]" />}
-      {status === "completed" ? "Completed" : "In progress"}
-    </span>
-  );
-}
-
-function CutoffBadge({ score, cutoff, isAboveCutoff }) {
-  if (cutoff === undefined || cutoff === null) {
-    return <span className="text-[8px] sm:text-[9px] md:text-[10px] text-slate-400">—</span>;
-  }
-  const isHigh = !!isAboveCutoff;
-  const diff = score - cutoff;
-  const diffLabel =
-    diff > 0 ? `${diff} above` :
-    diff < 0 ? `${Math.abs(diff)} below` :
-    "at cutoff";
-
-  return (
-    <span
-      className={`inline-flex items-center gap-0.5 sm:gap-1 px-1.5 sm:px-2 py-0.5 rounded-full text-[8px] sm:text-[9px] md:text-[10px] font-semibold whitespace-nowrap ${
-        isHigh ? "bg-[#E85720]/10 text-[#E85720]" : "bg-[#1F6D48]/10 text-[#1F6D48]"
-      }`}
-      title={`Score ${score}, cutoff ${cutoff}`}
-    >
-      {score}/{cutoff} · {diffLabel}
-    </span>
-  );
-}
-
-function InfoCard({ label, value, color }) {
-  return (
-    <div className={`rounded-lg sm:rounded-xl bg-gradient-to-br from-${color}/10 to-${color}/5 border border-${color}/20 px-4 sm:px-5 py-3 sm:py-4`}>
-      <p className={`text-[9px] sm:text-[10px] md:text-[11px] font-medium text-${color}/70 uppercase tracking-wide mb-0.5 sm:mb-1`}>{label}</p>
-      <p className={`text-[18px] sm:text-[22px] md:text-[24px] font-bold text-${color}`}>{value}</p>
-    </div>
-  );
-}
-
-function InfoItem({ label, value }) {
-  return (
-    <div className="rounded-lg bg-slate-50 border border-slate-100 px-3 sm:px-4 py-2.5 sm:py-3">
-      <p className="text-[8px] sm:text-[9px] md:text-[10px] font-medium text-slate-500 uppercase tracking-wide">{label}</p>
-      <p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-700 mt-0.5">{value}</p>
-    </div>
-  );
-}
-
-function TraitsList({ traits }) {
-  return (
-    <div>
-      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Personality Traits</h2>
-      <div className="flex flex-wrap gap-1.5 sm:gap-2">
-        {traits.map((trait) => (
-          <span key={trait} className="inline-flex items-center px-2 sm:px-3 py-1 sm:py-1.5 rounded-full text-[10px] sm:text-[11px] md:text-[12.5px] font-medium bg-gradient-to-r from-slate-50 to-slate-100 border border-slate-200 text-slate-700 capitalize shadow-sm">{trait}</span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function SummaryBox({ summary }) {
-  return (
-    <div>
-      <h2 className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-500 uppercase tracking-wide mb-2 sm:mb-3">Summary</h2>
-      <div className="rounded-lg sm:rounded-xl bg-gradient-to-r from-slate-50 to-[#E85720]/5 border border-slate-200 px-4 sm:px-5 py-3 sm:py-4">
-        <p className="text-[12px] sm:text-[13px] md:text-[14px] text-slate-700 leading-relaxed">{summary}</p>
-      </div>
-    </div>
-  );
-}
-
-// ============================================================================
-// EPI Quadrant Wheel
-// ============================================================================
-function EpiQuadrantWheel({ eScore, nScore, maxScore = 24, personalityType }) {
-  const size = 640;
-  const center = size / 2;
-  const outerR = 250;
-
-  const clamp = (v) => Math.min(maxScore, Math.max(0, v ?? 0));
-  const eVal = clamp(eScore);
-  const nVal = clamp(nScore);
-
-  const half = outerR * 0.92;
-  const dotX = center + ((nVal - maxScore / 2) / (maxScore / 2)) * half;
-  const dotY = center - ((eVal - maxScore / 2) / (maxScore / 2)) * half;
-
-  const type = (personalityType || "").toUpperCase();
-  const quadrantMap = { SANGUINE: "tl", CHOLERIC: "tr", PHLEGMATIC: "bl", MELANCHOLIC: "br" };
-  const activeQuad = quadrantMap[type];
-
-  const textColor = "#1F2E28";
-  const mutedText = "#44544D";
-  const accent = "#E85720";
-  const ringColor = "#D9E3DC";
-  const dividerColor = "#FFFFFF";
-
-  const polar = (r, deg) => { const rad = ((deg - 90) * Math.PI) / 180; return [center + r * Math.cos(rad), center + r * Math.sin(rad)]; };
-  const wedgePath = (r, startDeg, endDeg) => { const [x1, y1] = polar(r, startDeg); const [x2, y2] = polar(r, endDeg); const large = endDeg - startDeg > 180 ? 1 : 0; return `M ${center} ${center} L ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2} Z`; };
-  const arcPathTop = (r, startDeg, endDeg) => { const [x1, y1] = polar(r, startDeg); const [x2, y2] = polar(r, endDeg); const large = endDeg - startDeg > 180 ? 1 : 0; return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}`; };
-  const arcPathBottom = (r, startDeg, endDeg) => { const [x1, y1] = polar(r, endDeg); const [x2, y2] = polar(r, startDeg); const large = endDeg - startDeg > 180 ? 1 : 0; return `M ${x1} ${y1} A ${r} ${r} 0 ${large} 0 ${x2} ${y2}`; };
-
-  const labelR = outerR - 34;
-  const quadrants = [
-    { key: "tl", label: "(SANGUINE)", words: ["sociable", "outgoing", "talkative", "responsive", "easygoing", "lively", "carefree", "leadership"], wedgeStart: 270, wedgeEnd: 360, side: "left", arc: "top", arcStart: 270 + 4, arcEnd: 360 - 32 },
-    { key: "tr", label: "(CHOLERIC)", words: ["active", "optimistic", "impulsive", "changeable", "exciteable", "aggressive", "restless", "touchy"], wedgeStart: 0, wedgeEnd: 90, side: "right", arc: "top", arcStart: 0 + 32, arcEnd: 90 - 4 },
-    { key: "bl", label: "(PHLEGMATIC)", words: ["calm", "even-tempered", "reliable", "controlled", "peaceful", "thoughtful", "careful", "passive"], wedgeStart: 180, wedgeEnd: 270, side: "left", arc: "bottom", arcStart: 180 + 4, arcEnd: 270 - 32 },
-    { key: "br", label: "(MELANCHOLIC)", words: ["moody", "anxious", "rigid", "sober", "pessimistic", "reserved", "unsociable", "quiet"], wedgeStart: 90, wedgeEnd: 180, side: "right", arc: "bottom", arcStart: 90 + 32, arcEnd: 180 - 4 },
-  ];
-
-  const rowHeight = 22;
-  const topListStartY = center - outerR + 62;
-  const bottomListStartY = center + 42;
-
-  return (
-    <div style={{ position: "relative", width: "100%", maxWidth: 620, margin: "0 auto" }}>
-      <svg viewBox={`0 0 ${size} ${size + 20}`} width="100%" height="auto" style={{ display: "block" }}>
-        <defs>{quadrants.map((q) => (<path key={`arc-${q.key}`} id={`arc-${q.key}`} d={q.arc === "top" ? arcPathTop(labelR, q.arcStart, q.arcEnd) : arcPathBottom(labelR, q.arcStart, q.arcEnd)} fill="none" />))}</defs>
-        <g transform="translate(0,10)">
-          {quadrants.map((q) => (<path key={q.key} d={wedgePath(outerR, q.wedgeStart, q.wedgeEnd)} fill={activeQuad === q.key ? "#F3D9CC" : "#E9F0EA"} />))}
-          <line x1={center} y1={center - outerR} x2={center} y2={center + outerR} stroke={dividerColor} strokeWidth="5" />
-          <line x1={center - outerR} y1={center} x2={center + outerR} y2={center} stroke={dividerColor} strokeWidth="5" />
-          <circle cx={center} cy={center} r={outerR} fill="none" stroke="#FFFFFF" strokeWidth="2" />
-          <circle cx={center} cy={center} r={outerR} fill="none" stroke={ringColor} strokeWidth="1" />
-          {quadrants.map((q) => (<text key={`lbl-${q.key}`} fontSize="14" fontWeight="700" fill={textColor} letterSpacing="0.5"><textPath href={`#arc-${q.key}`} startOffset="50%" textAnchor="middle">{q.label}</textPath></text>))}
-          {quadrants.map((q) => { const isActive = activeQuad === q.key; const x = q.side === "left" ? center - 14 : center + 14; const anchor = q.side === "left" ? "end" : "start"; const startY = q.key === "tl" || q.key === "tr" ? topListStartY : bottomListStartY; return q.words.map((w, i) => (<text key={`${q.key}-${w}`} x={x} y={startY + i * rowHeight} textAnchor={anchor} fontSize="13.5" fontWeight={isActive ? "700" : "400"} fill={isActive ? accent : mutedText}>{w}</text>)); })}
-          <circle cx={center} cy={center} r="15" fill="#FFFFFF" />
-          <text x={center} y={center + 5} textAnchor="middle" fontSize="14" fontWeight="700" fill={textColor}>{maxScore / 2}</text>
-          <text x={center} y={center - outerR - 34} textAnchor="middle" fontSize="15" fontWeight="700" fill={textColor}>{maxScore}</text>
-          <text x={center} y={center - outerR - 14} textAnchor="middle" fontSize="14" fontWeight="700" fill={textColor} letterSpacing="1">EXTROVERT</text>
-          <text x={center} y={center + outerR + 24} textAnchor="middle" fontSize="14" fontWeight="700" fill={textColor} letterSpacing="1">INTROVERT</text>
-          <text x={center} y={center + outerR + 44} textAnchor="middle" fontSize="15" fontWeight="700" fill={textColor}>0</text>
-          <text x={center - outerR - 8} y={center + 5} textAnchor="end" fontSize="15" fontWeight="700" fill={textColor}>0</text>
-          <text x={center - outerR + 22} y={center + 5} textAnchor="start" fontSize="14" fontWeight="700" fill={textColor} letterSpacing="1">STABLE</text>
-          <text x={center + outerR - 22} y={center + 5} textAnchor="end" fontSize="14" fontWeight="700" fill={textColor} letterSpacing="1">NEUROTIC</text>
-          <text x={center + outerR + 8} y={center + 5} textAnchor="start" fontSize="15" fontWeight="700" fill={textColor}>{maxScore}</text>
-          <circle cx={dotX} cy={dotY} r="20" fill={accent} opacity="0.15" />
-          <circle cx={dotX} cy={dotY} r="9" fill={accent} stroke="#fff" strokeWidth="3" />
-        </g>
-      </svg>
-    </div>
-  );
-}
-
-function EpiScoreBar({ label, score, max, percentage, color }) {
-  const pct = percentage !== undefined && percentage !== null ? percentage : 0;
-  return (
-    <div className="rounded-lg sm:rounded-xl bg-slate-50 border border-slate-100 px-3 sm:px-4 py-2.5 sm:py-3">
-      <div className="flex items-center justify-between mb-1 sm:mb-1.5">
-        <span className="text-[9px] sm:text-[10px] md:text-[11.5px] font-medium text-slate-500">{label}</span>
-        <span className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{score ?? "—"}{max !== undefined && max !== null && <span className="text-slate-400 font-normal">/{max}</span>}</span>
-      </div>
-      <div className="h-1 sm:h-1.5 rounded-full bg-slate-200 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${Math.min(100, Math.max(0, pct))}%`, backgroundColor: color }} /></div>
-      {percentage !== undefined && percentage !== null && <p className="text-[8px] sm:text-[9px] md:text-[10.5px] text-slate-400 mt-0.5 sm:mt-1 text-right">{pct}%</p>}
-    </div>
-  );
-}
-
-// ============================================================================
-// Shared Small Components
-// ============================================================================
-function ProgressPill({ percentage, wide }) {
-  const pct = Math.min(100, Math.max(0, percentage || 0));
-  const color = pct >= 100 ? "#1F6D48" : pct > 0 ? "#E85720" : "#CBD5E1";
-  return (
-    <div className={wide ? "w-full" : "w-full"}>
-      <div className="flex items-center justify-between mb-0.5 sm:mb-1"><span className="text-[9px] sm:text-[10px] md:text-[11px] font-medium text-slate-500">{pct.toFixed(0)}%</span></div>
-      <div className="h-1 sm:h-1.5 rounded-full bg-slate-100 overflow-hidden"><div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: color }} /></div>
-    </div>
-  );
-}
-
-function StatusIcon({ status }) {
-  if (status === "completed") return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#1F6D48]/10 flex items-center justify-center shrink-0"><CheckCircle2 size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-[#1F6D48]" /></span>;
-  if (status === "in_progress") return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-[#E85720]/10 flex items-center justify-center shrink-0"><Clock size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-[#E85720]" /></span>;
-  return <span className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg bg-slate-100 flex items-center justify-center shrink-0"><Circle size={13} className="sm:w-[15px] sm:h-[15px] md:w-[16px] md:h-[16px] text-slate-400" /></span>;
-}
-
-function MiniStat({ label, value }) {
-  return <div className="text-right"><p className="text-[11px] sm:text-[12px] md:text-[13px] font-semibold text-slate-800">{value}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-400">{label}</p></div>;
-}
-
-function SummaryStat({ label, value, valueClass = "text-slate-800" }) {
-  return <div className="rounded-lg sm:rounded-xl bg-slate-50 px-2.5 sm:px-3 py-2 sm:py-2.5 text-center"><p className={`text-[13px] sm:text-[15px] md:text-[16px] font-semibold ${valueClass}`}>{value}</p><p className="text-[9px] sm:text-[10px] md:text-[11px] text-slate-500 mt-0.5">{label}</p></div>;
-}
-
-function AnswerChip({ label, value, tone }) {
-  const toneClass = { success: "bg-[#1F6D48]/10 text-[#1F6D48] border-[#1F6D48]/20", wrong: "bg-rose-50 text-rose-600 border-rose-200", neutral: "bg-slate-100 text-slate-500 border-slate-200", muted: "bg-slate-50 text-slate-500 border-slate-200" }[tone];
-  const displayValue = formatEpiValue(value);
-  return <span className={`inline-flex items-center gap-0.5 sm:gap-1 text-[9px] sm:text-[10px] md:text-[11.5px] font-medium px-1.5 sm:px-2 py-0.5 rounded-md border ${toneClass}`}><span className="opacity-70">{label}:</span> {displayValue}</span>;
-}
-
-function LoadingState({ label }) {
-  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="w-7 h-7 sm:w-8 sm:h-8 md:w-9 md:h-9 border-[2px] sm:border-[3px] border-[#2F4479]/15 border-t-[#2F4479] rounded-full animate-spin" /><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px] font-medium">{label}</p></div></div>;
-}
-
-function ErrorState({ message, onRetry }) {
-  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="p-2.5 sm:p-3 md:p-3.5 rounded-full bg-rose-50"><XCircle size={22} className="sm:w-[26px] sm:h-[26px] md:w-[28px] md:h-[28px] text-rose-500" /></div><p className="text-slate-700 font-medium text-[12px] sm:text-[13px] md:text-[14px]">Something went wrong</p><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px]">{message}</p>{onRetry && <button onClick={onRetry} className="mt-1 px-3 sm:px-4 py-1.5 sm:py-2 bg-[#2F4479] text-white rounded-lg sm:rounded-xl hover:bg-[#263a68] transition-colors text-[11px] sm:text-[12px] md:text-[13px] font-medium">Try Again</button>}</div></div>;
-}
-
-function EmptyState({ icon, title, subtitle }) {
-  return <div className="flex items-center justify-center py-12 sm:py-16 md:py-20"><div className="flex flex-col items-center gap-2 sm:gap-3"><div className="p-2.5 sm:p-3 md:p-3.5 rounded-full bg-slate-50">{icon}</div><p className="text-slate-700 font-medium text-[12px] sm:text-[13px] md:text-[14px]">{title}</p><p className="text-slate-500 text-[11px] sm:text-[12px] md:text-[13px]">{subtitle}</p></div></div>;
 }
